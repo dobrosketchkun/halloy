@@ -13,6 +13,7 @@ pub mod connect_to_server;
 pub mod image_preview;
 pub mod prompt_before_open_url;
 pub mod reload_configuration_error;
+pub mod sticker_picker;
 
 #[derive(Debug)]
 pub enum Modal {
@@ -38,6 +39,7 @@ pub enum Modal {
         has_credentials: bool,
         window: window::Id,
     },
+    StickerPicker(sticker_picker::State),
 }
 
 #[derive(Debug, Clone)]
@@ -49,6 +51,7 @@ pub enum Message {
     ServerConnect(ServerConnect),
     About(about::Action),
     ImagePreview(ImagePreview),
+    StickerPicker(sticker_picker::Action),
 }
 
 #[derive(Debug, Clone)]
@@ -67,6 +70,10 @@ pub enum Event {
     CloseModal,
     AcceptNewServer,
     ConfirmFileUpload,
+    SelectedSticker {
+        pack_id: data::sticker::PackId,
+        sticker_id: data::sticker::StickerId,
+    },
 }
 
 impl Modal {
@@ -83,6 +90,7 @@ impl Modal {
                 window,
             } => Some(*window),
             Modal::ConfirmFileUpload { window, .. } => Some(*window),
+            Modal::StickerPicker(..) => None,
         }
     }
 
@@ -120,6 +128,22 @@ impl Modal {
                 let _ = open_url::open(canonical);
                 let close = !matches!(self, Modal::ConfirmFileUpload { .. });
                 (Task::none(), close.then_some(Event::CloseModal))
+            }
+            Message::StickerPicker(action) => {
+                if let Modal::StickerPicker(state) = self {
+                    match state.update(action) {
+                        Some(selected) => (
+                            Task::none(),
+                            Some(Event::SelectedSticker {
+                                pack_id: selected.pack_id,
+                                sticker_id: selected.sticker_id,
+                            }),
+                        ),
+                        None => (Task::none(), None),
+                    }
+                } else {
+                    (Task::none(), None)
+                }
             }
             Message::ImagePreview(image_preview) => match image_preview {
                 ImagePreview::SaveImage(source) => (
@@ -188,6 +212,7 @@ impl Modal {
                 timer,
                 window: _,
             } => image_preview::view(source, url, timer, theme),
+            Modal::StickerPicker(state) => state.view(theme),
         }
     }
 }

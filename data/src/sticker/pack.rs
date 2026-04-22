@@ -1,3 +1,6 @@
+use std::collections::BTreeMap;
+use std::path::PathBuf;
+
 use serde::{Deserialize, Serialize};
 use url::Url;
 
@@ -37,6 +40,14 @@ pub struct Pack {
     pub id: PackId,
     pub base_url: Url,
     pub manifest: PackManifest,
+    /// Local path to the pack's cover image, populated by the cache layer
+    /// after the registry fetches pack metadata. `None` if the manifest has
+    /// no cover, or if the fetch failed.
+    pub cover_path: Option<PathBuf>,
+    /// Local path for each sticker image, keyed by the sticker id string
+    /// from the manifest. Entries are only present for stickers whose
+    /// images were successfully cached.
+    pub sticker_paths: BTreeMap<String, PathBuf>,
 }
 
 impl Pack {
@@ -45,6 +56,8 @@ impl Pack {
             id,
             base_url,
             manifest,
+            cover_path: None,
+            sticker_paths: BTreeMap::new(),
         }
     }
 
@@ -57,6 +70,10 @@ impl Pack {
 
     pub fn sticker_url(&self, sticker_id: &StickerId) -> Option<Url> {
         self.base_url.join(&self.find(sticker_id)?.file).ok()
+    }
+
+    pub fn sticker_path(&self, sticker_id: &StickerId) -> Option<&PathBuf> {
+        self.sticker_paths.get(sticker_id.as_str())
     }
 
     pub fn cover_url(&self) -> Option<Url> {

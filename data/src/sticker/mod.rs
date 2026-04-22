@@ -1,3 +1,4 @@
+pub mod cache;
 pub mod fetch;
 pub mod pack;
 pub mod registry;
@@ -122,5 +123,16 @@ pub fn resolve_url(
 ) -> Option<url::Url> {
     with_shared(|reg| {
         reg.get(pack_id).and_then(|p| p.sticker_url(sticker_id))
+    })
+}
+
+pub fn resolve_path(
+    pack_id: &PackId,
+    sticker_id: &StickerId,
+) -> Option<std::path::PathBuf> {
+    with_shared(|reg| {
+        reg.get(pack_id)
+            .and_then(|p| p.sticker_path(sticker_id))
+            .cloned()
     })
 }
