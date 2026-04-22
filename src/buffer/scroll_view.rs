@@ -1881,17 +1881,33 @@ fn preview_row<'a>(
             .on_press(Message::Link(message::Link::Url(url.to_string()))),
         ),
         data::Preview::Image(preview::Image { path, url, .. }) => {
-            let body: Element<'a, Message> = if message.sticker.is_some() {
+            let body: Element<'a, Message> = if let Some(sticker_ref) =
+                &message.sticker
+            {
                 // Sticker rendering: plain image, fixed max size from
                 // [sticker].max_size_px, no button wrapper (no click-to-enlarge,
                 // no open-in-browser). A sticker is a sticker, not an image.
+                //
+                // Use the sticker cache path (refreshed with If-Modified-Since
+                // on each startup) rather than halloy's URL preview cache
+                // (which has no freshness mechanism), so edits to the pack
+                // repo show up without manual cache clears. Fallback to the
+                // preview path if the sticker isn't in the registry (e.g.
+                // pack unsubscribed).
                 let size = config.sticker.max_size_px as f32;
-                container(
-                    image(path).content_fit(ContentFit::ScaleDown),
-                )
-                .max_width(size)
-                .max_height(size)
-                .into()
+                let sticker_path = data::sticker::resolve_path(
+                    &sticker_ref.pack,
+                    &sticker_ref.sticker,
+                );
+                let img: Element<'a, Message> = match sticker_path {
+                    Some(p) => {
+                        image(p).content_fit(ContentFit::ScaleDown).into()
+                    }
+                    None => image(path)
+                        .content_fit(ContentFit::ScaleDown)
+                        .into(),
+                };
+                container(img).max_width(size).max_height(size).into()
             } else {
                 button(
                     container(

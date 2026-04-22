@@ -91,6 +91,10 @@ pub enum Message {
     Filehost(filehost::Message),
     ProceedWithFilehostUpload,
     CancelFilehostUpload,
+    SendSticker {
+        pack_id: data::sticker::PackId,
+        sticker_id: data::sticker::StickerId,
+    },
 }
 
 #[derive(Debug)]
@@ -110,6 +114,7 @@ pub enum Event {
     ImagePreview(PathBuf, url::Url),
     ToggleFullscreen,
     Remove(Server),
+    OpenStickerPicker,
     PromptBeforeFileUpload {
         upload_url: String,
         has_credentials: bool,
@@ -1542,6 +1547,9 @@ impl Dashboard {
                     OpenConfigFile => {
                         let _ = open_url::open(Config::path());
                     }
+                    OpenStickerPicker => {
+                        return (Task::none(), Some(Event::OpenStickerPicker));
+                    }
                 }
             }
             Message::FileTransfer(update) => {
@@ -1748,6 +1756,44 @@ impl Dashboard {
             Message::CancelFilehostUpload => {
                 let task = self.filehost.cancel().map(Message::Filehost);
                 return (task, None);
+            }
+            Message::SendSticker {
+                pack_id,
+                sticker_id,
+            } => {
+                let Some((_, _, pane)) = self.get_focused() else {
+                    return (Task::none(), None);
+                };
+                let Some(upstream) = pane.buffer.upstream().cloned() else {
+                    return (Task::none(), None);
+                };
+                let Some(target) = upstream.target() else {
+                    return (Task::none(), None);
+                };
+                let Some(url) =
+                    data::sticker::resolve_url(&pack_id, &sticker_id)
+                else {
+                    log::warn!(
+                        "sticker {pack_id}/{sticker_id} not found in registry"
+                    );
+                    return (Task::none(), None);
+                };
+
+                let irc = command::Irc::Sticker {
+                    target: target.to_string(),
+                    url: url.to_string(),
+                    pack_id: pack_id.as_str().to_owned(),
+                    sticker_id: sticker_id.as_str().to_owned(),
+                };
+                let input = data::Input::from_command(upstream, irc);
+                if let Some(encoded) = input.encoded() {
+                    clients.send(
+                        &input.buffer,
+                        encoded,
+                        TokenPriority::User,
+                    );
+                }
+                return (Task::none(), None);
             }
         }
 

@@ -579,6 +579,12 @@ impl Halloy {
                     Some(dashboard::Event::Remove(server)) => {
                         self.remove(server)
                     }
+                    Some(dashboard::Event::OpenStickerPicker) => {
+                        self.modal = Some(Modal::StickerPicker(
+                            modal::sticker_picker::State::new(),
+                        ));
+                        Task::none()
+                    }
                     Some(dashboard::Event::PromptBeforeFileUpload {
                         upload_url,
                         has_credentials,
@@ -978,6 +984,18 @@ impl Halloy {
                                         .insert(server, Arc::new(config));
                                 }
                             }
+                        }
+                        modal::Event::SelectedSticker {
+                            pack_id,
+                            sticker_id,
+                        } => {
+                            self.modal = None;
+                            return Task::done(Message::Dashboard(
+                                dashboard::Message::SendSticker {
+                                    pack_id,
+                                    sticker_id,
+                                },
+                            ));
                         }
                     }
                 }
