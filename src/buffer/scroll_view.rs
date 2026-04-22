@@ -1880,32 +1880,48 @@ fn preview_row<'a>(
             .style(theme::button::preview_card)
             .on_press(Message::Link(message::Link::Url(url.to_string()))),
         ),
-        data::Preview::Image(preview::Image { path, url, .. }) => keyed(
-            keyed::Key::Preview(message.hash, idx),
-            button(
+        data::Preview::Image(preview::Image { path, url, .. }) => {
+            let body: Element<'a, Message> = if message.sticker.is_some() {
+                // Sticker rendering: plain image, fixed max size from
+                // [sticker].max_size_px, no button wrapper (no click-to-enlarge,
+                // no open-in-browser). A sticker is a sticker, not an image.
+                let size = config.sticker.max_size_px as f32;
                 container(
-                    image(path)
-                        .border_radius(if config.preview.image.round_corners {
-                            4
-                        } else {
-                            0
-                        })
-                        .content_fit(ContentFit::ScaleDown),
+                    image(path).content_fit(ContentFit::ScaleDown),
                 )
-                .max_width(config.preview.image.max_width)
-                .max_height(config.preview.image.max_height),
-            )
-            .on_press(match config.preview.image.action {
-                data::config::preview::ImageAction::OpenUrl => {
-                    Message::Link(message::Link::Url(url.to_string()))
-                }
-                data::config::preview::ImageAction::Preview => {
-                    Message::ImagePreview(path.to_path_buf(), url.clone())
-                }
-            })
-            .padding(0)
-            .style(theme::button::bare),
-        ),
+                .max_width(size)
+                .max_height(size)
+                .into()
+            } else {
+                button(
+                    container(
+                        image(path)
+                            .border_radius(
+                                if config.preview.image.round_corners {
+                                    4
+                                } else {
+                                    0
+                                },
+                            )
+                            .content_fit(ContentFit::ScaleDown),
+                    )
+                    .max_width(config.preview.image.max_width)
+                    .max_height(config.preview.image.max_height),
+                )
+                .on_press(match config.preview.image.action {
+                    data::config::preview::ImageAction::OpenUrl => {
+                        Message::Link(message::Link::Url(url.to_string()))
+                    }
+                    data::config::preview::ImageAction::Preview => {
+                        Message::ImagePreview(path.to_path_buf(), url.clone())
+                    }
+                })
+                .padding(0)
+                .style(theme::button::bare)
+                .into()
+            };
+            keyed(keyed::Key::Preview(message.hash, idx), body)
+        }
     };
 
     let url_string = url.to_string();
