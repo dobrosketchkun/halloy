@@ -86,6 +86,12 @@ pub enum Irc {
     Chathistory(String, Vec<String>),
     Monitor(String, Option<String>),
     Invite(String, String),
+    Sticker {
+        target: String,
+        url: String,
+        pack_id: String,
+        sticker_id: String,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
@@ -278,6 +284,7 @@ pub enum Kind {
     MassMessage,
     Exec,
     Raw,
+    Sticker,
 }
 
 impl FromStr for Kind {
@@ -324,6 +331,7 @@ impl FromStr for Kind {
             "upload" => Ok(Kind::Upload),
             "massmessage" | "mm" => Ok(Kind::MassMessage),
             "exec" => Ok(Kind::Exec),
+            "sticker" => Ok(Kind::Sticker),
             _ => Err(()),
         }
     }
@@ -1070,6 +1078,49 @@ fn parse_command(
                 })
             }
             Kind::Raw => Ok(Command::Irc(Irc::Raw(raw.to_string()), None)),
+            Kind::Sticker => {
+                if let Some(target) = buffer.and_then(Upstream::target) {
+                    validated::<1, 0, false>(args, |[spec], _| {
+                        let (pack_str, sticker_str) = spec
+                            .split_once('/')
+                            .ok_or_else(|| Error::InvalidStickerSpec {
+                                spec: spec.clone(),
+                            })?;
+
+                        let pack_id = crate::sticker::PackId::new(
+                            pack_str.to_owned(),
+                        )
+                        .ok_or_else(|| Error::InvalidStickerSpec {
+                            spec: spec.clone(),
+                        })?;
+                        let sticker_id = crate::sticker::StickerId::new(
+                            sticker_str.to_owned(),
+                        )
+                        .ok_or_else(|| Error::InvalidStickerSpec {
+                            spec: spec.clone(),
+                        })?;
+
+                        let url =
+                            crate::sticker::resolve_url(&pack_id, &sticker_id)
+                                .ok_or_else(|| Error::StickerNotFound {
+                                    pack_id: pack_str.to_owned(),
+                                    sticker_id: sticker_str.to_owned(),
+                                })?;
+
+                        Ok(Command::Irc(
+                            Irc::Sticker {
+                                target: target.to_string(),
+                                url: url.to_string(),
+                                pack_id: pack_str.to_owned(),
+                                sticker_id: sticker_str.to_owned(),
+                            },
+                            None,
+                        ))
+                    })
+                } else {
+                    Err(Error::NotInChannel)
+                }
+            }
             Kind::Format => {
                 if let Some(target) = buffer.and_then(Upstream::target) {
                     Ok(Command::Irc(
@@ -2026,6 +2077,9 @@ impl TryFrom<Irc> for proto::Command {
             Irc::Invite(nickname, channel) => {
                 proto::Command::INVITE(nickname, channel)
             }
+            Irc::Sticker { target, url, .. } => {
+                proto::Command::PRIVMSG(target, url)
+            }
         })
     }
 }
@@ -2045,6 +2099,13 @@ impl TryFrom<Irc> for proto::Message {
                 "+draft/unreact" => text.as_ref(),
             ],
             Irc::Typing { value, .. } => tags!["+typing" => value.as_str()],
+            Irc::Sticker {
+                pack_id,
+                sticker_id,
+                ..
+            } => tags![
+                "+halloy.chat/sticker" => format!("{pack_id}/{sticker_id}"),
+            ],
             _ => tags![],
         };
         let mut msg = proto::Message::from(proto::Command::try_from(command)?);
@@ -2122,6 +2183,13 @@ pub enum Error {
     },
     #[error("/{command} is not enabled in configuration")]
     CommandNotEnabled { command: &'static str },
+    #[error("invalid sticker spec {spec:?}, expected pack_id/sticker_id")]
+    InvalidStickerSpec { spec: String },
+    #[error("sticker {pack_id}/{sticker_id} not found in any loaded pack")]
+    StickerNotFound {
+        pack_id: String,
+        sticker_id: String,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
