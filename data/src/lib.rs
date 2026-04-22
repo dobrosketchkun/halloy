@@ -53,6 +53,7 @@ pub mod reaction;
 pub mod serde;
 pub mod server;
 pub mod shortcut;
+pub mod sticker;
 pub mod stream;
 pub mod target;
 pub mod time;
