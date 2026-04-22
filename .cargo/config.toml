@@ -1,0 +1,8 @@
+# === halloy-stickers fork: BEGIN ===
+# Windows debug builds need a bigger thread stack for iced's generic depth.
+# Matches the 8 MB default thread stack on Linux/macOS; without this,
+# `cargo run` on Windows debug/ci profiles overflows main at startup.
+# Harmless on other platforms (guarded by cfg(windows)).
+[target.'cfg(windows)']
+rustflags = ["-C", "link-arg=/STACK:8388608"]
+# === halloy-stickers fork: END ===
