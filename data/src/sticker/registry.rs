@@ -37,22 +37,18 @@ impl Registry {
         self.packs.is_empty()
     }
 
-    pub async fn load_from_config(config: &config::Sticker) -> Self {
+    pub async fn load_from_config(config: config::Sticker) -> Self {
         if !config.enabled {
             return Self::new();
         }
 
-        let fetches = config.packs.iter().map(|entry| {
-            let url = entry.url.clone();
-            async move {
-                match super::fetch::fetch_pack(url.clone()).await {
-                    Ok(pack) => Some(pack),
-                    Err(err) => {
-                        log::warn!(
-                            "failed to load sticker pack from {url}: {err}"
-                        );
-                        None
-                    }
+        let fetches = config.packs.into_iter().map(|entry| async move {
+            let url = entry.url;
+            match super::fetch::fetch_pack(url.clone()).await {
+                Ok(pack) => Some(pack),
+                Err(err) => {
+                    log::warn!("failed to load sticker pack from {url}: {err}");
+                    None
                 }
             }
         });
