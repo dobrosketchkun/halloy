@@ -1,6 +1,6 @@
 use super::{PackId, StickerId, StickerRef};
 
-pub const TAG: &str = "+halloy.sticker";
+pub const TAG: &str = "+halloy.chat/sticker";
 
 pub fn encode(r: &StickerRef) -> String {
     format!("{}/{}", r.pack, r.sticker)
@@ -67,6 +67,6 @@ mod tests {
 
     #[test]
     fn tag_constant() {
-        assert_eq!(TAG, "+halloy.sticker");
+        assert_eq!(TAG, "+halloy.chat/sticker");
     }
 }

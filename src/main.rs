@@ -646,6 +646,7 @@ impl Halloy {
                 Task::none()
             }
             Message::StickerRegistryLoaded(registry) => {
+                sticker::replace_shared(registry.clone());
                 self.sticker_registry = registry;
                 Task::none()
             }
