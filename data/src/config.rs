@@ -30,6 +30,7 @@ pub use self::preview::Preview;
 pub use self::proxy::Proxy;
 pub use self::server::Server;
 pub use self::sidebar::Sidebar;
+pub use self::sticker::Sticker;
 pub use self::window::Window;
 use crate::appearance::theme::Styles;
 use crate::appearance::{self, Appearance};
@@ -58,6 +59,7 @@ pub mod preview;
 pub mod proxy;
 pub mod server;
 pub mod sidebar;
+pub mod sticker;
 pub mod window;
 
 const CONFIG_TEMPLATE: &str = include_str!("../../config.toml");
@@ -81,6 +83,7 @@ pub struct Config {
     pub tooltips: Tooltips,
     pub window: Window,
     pub preview: Preview,
+    pub sticker: Sticker,
     pub highlights: Highlights,
     pub actions: Actions,
     pub ctcp: Ctcp,
@@ -109,6 +112,7 @@ impl Default for Config {
             tooltips: Tooltips::default(),
             window: Window::default(),
             preview: Preview::default(),
+            sticker: Sticker::default(),
             highlights: Highlights::default(),
             actions: Actions::default(),
             ctcp: Ctcp::default(),
@@ -468,6 +472,7 @@ impl Config {
             pub tooltips: Tooltips,
             pub window: Window,
             pub preview: Preview,
+            pub sticker: Sticker,
             pub highlights: Highlights,
             pub actions: Actions,
             pub ctcp: Ctcp,
@@ -496,6 +501,7 @@ impl Config {
                     tooltips: Tooltips::default(),
                     window: Window::default(),
                     preview: Preview::default(),
+                    sticker: Sticker::default(),
                     highlights: Highlights::default(),
                     actions: Actions::default(),
                     ctcp: Ctcp::default(),
@@ -534,6 +540,7 @@ impl Config {
             tooltips,
             window,
             preview,
+            sticker,
             pane,
             highlights,
             actions,
@@ -574,6 +581,7 @@ impl Config {
             tooltips,
             window,
             preview,
+            sticker,
             pane,
             highlights,
             actions,
