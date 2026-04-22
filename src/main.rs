@@ -40,7 +40,7 @@ use data::user::Nick;
 use data::version::Version;
 use data::{
     Notification, Server, Url, User, client, environment, history, server,
-    version,
+    sticker, version,
 };
 use iced::widget::{column, container};
 use iced::{Length, Subscription, Task, padding};
@@ -180,6 +180,7 @@ struct Halloy {
     current_mode: appearance::Mode,
     theme: Theme,
     config: Config,
+    sticker_registry: sticker::Registry,
     clients: data::client::Map,
     servers: server::Map,
     controllers: stream::Map,
@@ -260,6 +261,7 @@ impl Halloy {
                 servers,
                 controllers: stream::Map::default(),
                 config,
+                sticker_registry: sticker::Registry::default(),
                 modal: None,
                 main_window,
                 focused_window: None,
@@ -290,6 +292,7 @@ pub enum Message {
     Tick(Instant),
     AnimationTick(Instant),
     Version(Option<String>),
+    StickerRegistryLoaded(sticker::Registry),
     Modal(modal::Message),
     RouteReceived(String),
     AppearanceChange(appearance::Mode),
@@ -320,6 +323,7 @@ impl Halloy {
         let default_config = Config::default();
         let config = config_load.as_ref().unwrap_or(&default_config);
         let proxy_config = config.proxy.clone();
+        let sticker_config = config.sticker.clone();
         let check_for_update_on_launch = config.check_for_update_on_launch;
         let window_size = iced::Size::new(
             config
@@ -369,6 +373,11 @@ impl Halloy {
                 Message::Version,
             ));
         }
+
+        commands.push(Task::perform(
+            sticker::Registry::load_from_config(sticker_config),
+            Message::StickerRegistryLoaded,
+        ));
 
         if let Some(url) = url_received {
             commands.push(halloy.handle_url(url));
@@ -634,6 +643,10 @@ impl Halloy {
                 // Set latest known remote version
                 self.version.remote = remote;
 
+                Task::none()
+            }
+            Message::StickerRegistryLoaded(registry) => {
+                self.sticker_registry = registry;
                 Task::none()
             }
             Message::Help(message) => {
@@ -1449,6 +1462,13 @@ impl Halloy {
 
                 self.config = updated;
 
+                let reload_registry = Task::perform(
+                    sticker::Registry::load_from_config(
+                        self.config.sticker.clone(),
+                    ),
+                    Message::StickerRegistryLoaded,
+                );
+
                 for (server, _) in removed_servers {
                     self.clients.quit(
                         &server,
@@ -1465,10 +1485,18 @@ impl Halloy {
                         &self.config.buffer,
                     );
 
-                    return dashboard
-                        .reload_visible_previews(&self.clients, &self.config)
-                        .map(Message::Dashboard);
+                    return Task::batch([
+                        dashboard
+                            .reload_visible_previews(
+                                &self.clients,
+                                &self.config,
+                            )
+                            .map(Message::Dashboard),
+                        reload_registry,
+                    ]);
                 }
+
+                return reload_registry;
             }
             Err(error) => {
                 self.modal = Some(Modal::ReloadConfigurationError(error));
