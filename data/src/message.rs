@@ -30,7 +30,7 @@ use crate::server::Server;
 use crate::target::join_targets;
 use crate::time::Posix;
 use crate::user::{ChannelUsers, Nick, NickRef};
-use crate::{Config, User, command, ctcp, isupport, message, target};
+use crate::{Config, User, command, ctcp, isupport, message, sticker, target};
 
 // References:
 // - https://datatracker.ietf.org/doc/html/rfc1738#section-5
@@ -168,6 +168,11 @@ impl Encoded {
     }
 }
 
+fn detect_sticker(encoded: &Encoded) -> Option<sticker::StickerRef> {
+    let value = encoded.tags.get(sticker::wire::TAG)?;
+    sticker::wire::decode(value)
+}
+
 fn received_command(encoded: &Encoded) -> Option<command::Irc> {
     match &encoded.command {
         Command::PRIVMSG(target, text) => {
@@ -301,6 +306,7 @@ pub struct Message {
     pub reactions: Vec<Reaction>,
     pub rerouted_from: Option<Target>,
     pub deduplicate: bool,
+    pub sticker: Option<sticker::StickerRef>,
 }
 
 impl Message {
@@ -413,6 +419,7 @@ impl Message {
             casemapping,
             prefix,
         )?;
+        let sticker = detect_sticker(&encoded);
         let (target, rerouted_from) = target(
             encoded,
             &our_nick,
@@ -443,6 +450,7 @@ impl Message {
             reactions: vec![],
             rerouted_from,
             deduplicate,
+            sticker,
         })
     }
 
@@ -478,6 +486,7 @@ impl Message {
             casemapping,
             prefix,
         )?;
+        let sticker = detect_sticker(&encoded);
         let (target, rerouted_from) = target(
             encoded,
             &our_nick,
@@ -508,6 +517,7 @@ impl Message {
             reactions: vec![],
             rerouted_from,
             deduplicate,
+            sticker,
         };
 
         let highlight = highlight.and_then(|kind| {
@@ -577,6 +587,7 @@ impl Message {
             reactions: vec![],
             rerouted_from: None,
             deduplicate: false,
+            sticker: None,
         }
     }
 
@@ -613,6 +624,7 @@ impl Message {
             reactions: vec![],
             rerouted_from: None,
             deduplicate: false,
+            sticker: None,
         }
     }
 
@@ -647,6 +659,7 @@ impl Message {
             reactions: vec![],
             rerouted_from: None,
             deduplicate: false,
+            sticker: None,
         }
     }
 
@@ -715,6 +728,7 @@ impl Message {
             reactions: vec![],
             rerouted_from: None,
             deduplicate: false,
+            sticker: None,
         }
     }
 
@@ -763,6 +777,8 @@ impl Serialize for Message {
             #[serde(skip_serializing_if = "<[_]>::is_empty")]
             reactions: &'a [Reaction],
             rerouted_from: &'a Option<Target>,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            sticker: &'a Option<sticker::StickerRef>,
         }
 
         Data {
@@ -778,6 +794,7 @@ impl Serialize for Message {
             command: &self.command,
             reactions: &self.reactions,
             rerouted_from: &self.rerouted_from,
+            sticker: &self.sticker,
         }
         .serialize(serializer)
     }
@@ -811,6 +828,8 @@ impl<'de> Deserialize<'de> for Message {
             reactions: Vec<Reaction>,
             #[serde(default, deserialize_with = "fail_as_none")]
             rerouted_from: Option<Target>,
+            #[serde(default, deserialize_with = "fail_as_none")]
+            sticker: Option<sticker::StickerRef>,
         }
 
         let Data {
@@ -826,6 +845,7 @@ impl<'de> Deserialize<'de> for Message {
             command,
             reactions,
             rerouted_from,
+            sticker,
         } = Data::deserialize(deserializer)?;
 
         let content = if let Some(content) = content {
@@ -859,6 +879,7 @@ impl<'de> Deserialize<'de> for Message {
             reactions,
             rerouted_from,
             deduplicate: false,
+            sticker,
         })
     }
 }
@@ -1052,6 +1073,7 @@ pub fn condense(
             reactions: vec![],
             rerouted_from: None,
             deduplicate: false,
+            sticker: None,
         }))
     } else {
         None
