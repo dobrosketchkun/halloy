@@ -27,3 +27,7 @@
 /docs/node_modules/
 /docs/.vitepress/cache/
 /docs/.vitepress/dist/
+
+# Fork small things
+STICKERPACKS_PLAN.md
+commands_git_and_others
