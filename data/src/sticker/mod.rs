@@ -136,3 +136,21 @@ pub fn resolve_path(
             .cloned()
     })
 }
+
+/// Reverse lookup: find the pack that owns a given sticker image URL.
+/// Used when a user clicks a sticker in chat — we have the URL from the
+/// message preview, and want to open the pack-info modal for its pack.
+pub fn pack_for_url(url: &url::Url) -> Option<PackId> {
+    with_shared(|reg| {
+        for pack in reg.iter() {
+            for s in &pack.manifest.stickers {
+                if let Ok(candidate) = pack.base_url.join(&s.file)
+                    && &candidate == url
+                {
+                    return Some(pack.id.clone());
+                }
+            }
+        }
+        None
+    })
+}

@@ -13,6 +13,7 @@ pub mod connect_to_server;
 pub mod image_preview;
 pub mod prompt_before_open_url;
 pub mod reload_configuration_error;
+pub mod sticker_info;
 pub mod sticker_picker;
 
 #[derive(Debug)]
@@ -40,6 +41,7 @@ pub enum Modal {
         window: window::Id,
     },
     StickerPicker(sticker_picker::State),
+    StickerInfo(sticker_info::State),
 }
 
 #[derive(Debug, Clone)]
@@ -52,6 +54,7 @@ pub enum Message {
     About(about::Action),
     ImagePreview(ImagePreview),
     StickerPicker(sticker_picker::Action),
+    StickerInfo(sticker_info::Action),
 }
 
 #[derive(Debug, Clone)]
@@ -91,6 +94,7 @@ impl Modal {
             } => Some(*window),
             Modal::ConfirmFileUpload { window, .. } => Some(*window),
             Modal::StickerPicker(..) => None,
+            Modal::StickerInfo(..) => None,
         }
     }
 
@@ -141,6 +145,13 @@ impl Modal {
                         ),
                         None => (Task::none(), None),
                     }
+                } else {
+                    (Task::none(), None)
+                }
+            }
+            Message::StickerInfo(action) => {
+                if let Modal::StickerInfo(state) = self {
+                    (state.update(action), None)
                 } else {
                     (Task::none(), None)
                 }
@@ -213,6 +224,7 @@ impl Modal {
                 window: _,
             } => image_preview::view(source, url, timer, theme),
             Modal::StickerPicker(state) => state.view(theme),
+            Modal::StickerInfo(state) => state.view(theme),
         }
     }
 }

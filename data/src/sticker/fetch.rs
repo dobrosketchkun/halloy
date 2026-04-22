@@ -75,6 +75,37 @@ fn ensure_trailing_slash(mut url: Url) -> Url {
     url
 }
 
+/// Reverse of `normalize_base_url`: turn a raw.githubusercontent.com URL
+/// back into the human-browseable github.com/tree form. Used for UI strings
+/// like the "Copy pack URL" button — users shouldn't ever see or paste the
+/// CDN URL. Non-github URLs pass through unchanged.
+pub fn to_browseable_url(url: &Url) -> Url {
+    if url.host_str() == Some("raw.githubusercontent.com") {
+        let segments: Vec<&str> = url
+            .path_segments()
+            .map(|s| s.filter(|seg| !seg.is_empty()).collect())
+            .unwrap_or_default();
+
+        // path is /USER/REPO/BRANCH/PATH...
+        if segments.len() >= 3 {
+            let user = segments[0];
+            let repo = segments[1];
+            let branch = segments[2];
+
+            let mut out = format!("https://github.com/{user}/{repo}/tree/{branch}");
+            for seg in &segments[3..] {
+                out.push('/');
+                out.push_str(seg);
+            }
+
+            if let Ok(parsed) = Url::parse(&out) {
+                return parsed;
+            }
+        }
+    }
+    url.clone()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
