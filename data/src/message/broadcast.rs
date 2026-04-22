@@ -48,6 +48,7 @@ fn expand(
             rerouted_from: None,
             deduplicate: false,
             redaction: None,
+            sticker: None,
         }
     };
 

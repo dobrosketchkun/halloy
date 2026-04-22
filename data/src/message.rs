@@ -32,7 +32,7 @@ use crate::server::Server;
 use crate::target::join_targets;
 use crate::time::Posix;
 use crate::user::{ChannelUsers, Nick, NickRef};
-use crate::{Config, User, command, ctcp, isupport, message, target};
+use crate::{Config, User, command, ctcp, isupport, message, sticker, target};
 
 // References:
 // - https://datatracker.ietf.org/doc/html/rfc1738#section-5
@@ -174,6 +174,11 @@ impl Encoded {
                 .ok()
             })
     }
+}
+
+fn detect_sticker(encoded: &Encoded) -> Option<sticker::StickerRef> {
+    let value = encoded.tags.get(sticker::wire::TAG)?;
+    sticker::wire::decode(value)
 }
 
 fn received_command(encoded: &Encoded) -> Option<command::Irc> {
@@ -328,6 +333,7 @@ pub struct Message {
     pub rerouted_from: Option<Target>,
     pub deduplicate: bool,
     pub redaction: Option<Redaction>,
+    pub sticker: Option<sticker::StickerRef>,
 }
 
 impl Message {
@@ -439,6 +445,7 @@ impl Message {
             statusmsg,
             casemapping,
         )?;
+        let sticker = detect_sticker(&encoded);
         let (content, _) = content(
             encoded,
             &target,
@@ -475,6 +482,7 @@ impl Message {
             rerouted_from,
             deduplicate,
             redaction: None,
+            sticker,
         })
     }
 
@@ -510,6 +518,7 @@ impl Message {
             statusmsg,
             casemapping,
         )?;
+        let sticker = detect_sticker(&encoded);
         let (content, highlight) = content(
             encoded,
             &target,
@@ -546,6 +555,7 @@ impl Message {
             rerouted_from,
             deduplicate,
             redaction: None,
+            sticker,
         };
 
         let highlight = highlight.and_then(|kind| {
@@ -625,6 +635,7 @@ impl Message {
             rerouted_from: None,
             deduplicate: false,
             redaction: None,
+            sticker: None,
         }
     }
 
@@ -664,6 +675,7 @@ impl Message {
             rerouted_from: None,
             deduplicate: false,
             redaction: None,
+            sticker: None,
         }
     }
 
@@ -701,6 +713,7 @@ impl Message {
             rerouted_from: None,
             deduplicate: false,
             redaction: None,
+            sticker: None,
         }
     }
 
@@ -793,6 +806,7 @@ impl Message {
             rerouted_from: None,
             deduplicate: false,
             redaction: None,
+            sticker: None,
         }
     }
 
@@ -865,6 +879,8 @@ impl Serialize for Message {
             reactions: &'a [Reaction],
             rerouted_from: &'a Option<Target>,
             redaction: &'a Option<Redaction>,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            sticker: &'a Option<sticker::StickerRef>,
         }
 
         Data {
@@ -882,6 +898,7 @@ impl Serialize for Message {
             reactions: &self.reactions,
             rerouted_from: &self.rerouted_from,
             redaction: &self.redaction,
+            sticker: &self.sticker,
         }
         .serialize(serializer)
     }
@@ -919,6 +936,8 @@ impl<'de> Deserialize<'de> for Message {
             rerouted_from: Option<Target>,
             #[serde(default, deserialize_with = "fail_as_none")]
             redaction: Option<Redaction>,
+            #[serde(default, deserialize_with = "fail_as_none")]
+            sticker: Option<sticker::StickerRef>,
         }
 
         let Data {
@@ -936,6 +955,7 @@ impl<'de> Deserialize<'de> for Message {
             reactions,
             rerouted_from,
             redaction,
+            sticker,
         } = Data::deserialize(deserializer)?;
 
         let content = if let Some(content) = content {
@@ -972,6 +992,7 @@ impl<'de> Deserialize<'de> for Message {
             rerouted_from,
             deduplicate: false,
             redaction,
+            sticker,
         })
     }
 }
@@ -1168,6 +1189,7 @@ pub fn condense(
             rerouted_from: None,
             deduplicate: false,
             redaction: None,
+            sticker: None,
         }))
     } else {
         None
