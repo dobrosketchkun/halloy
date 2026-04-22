@@ -566,6 +566,20 @@ impl Halloy {
                         }
                     }
                     Some(dashboard::Event::ImagePreview(path, url)) => {
+                        // If the URL matches a loaded sticker, open the
+                        // pack-info modal instead of the image preview.
+                        // Sticker messages route through this event path
+                        // (see scroll_view.rs preview_row) specifically so
+                        // we can intercept here without new propagation.
+                        if let Some(pack_id) =
+                            data::sticker::pack_for_url(&url)
+                        {
+                            self.modal = Some(Modal::StickerInfo(
+                                modal::sticker_info::State::new(pack_id),
+                            ));
+                            return Task::none();
+                        }
+
                         let Some((id, _, _)) = dashboard.get_focused() else {
                             return Task::none();
                         };

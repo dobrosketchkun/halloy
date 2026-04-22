@@ -1884,9 +1884,11 @@ fn preview_row<'a>(
             let body: Element<'a, Message> = if let Some(sticker_ref) =
                 &message.sticker
             {
-                // Sticker rendering: plain image, fixed max size from
-                // [sticker].max_size_px, no button wrapper (no click-to-enlarge,
-                // no open-in-browser). A sticker is a sticker, not an image.
+                // Sticker rendering: fixed max size from
+                // [sticker].max_size_px, clickable but no enlarge action —
+                // click routes through the ImagePreview event path and is
+                // intercepted in main.rs, which opens the pack-info modal
+                // instead of the image-preview modal.
                 //
                 // Use the sticker cache path (refreshed with If-Modified-Since
                 // on each startup) rather than halloy's URL preview cache
@@ -1899,15 +1901,19 @@ fn preview_row<'a>(
                     &sticker_ref.pack,
                     &sticker_ref.sticker,
                 );
-                let img: Element<'a, Message> = match sticker_path {
-                    Some(p) => {
-                        image(p).content_fit(ContentFit::ScaleDown).into()
-                    }
-                    None => image(path)
-                        .content_fit(ContentFit::ScaleDown)
-                        .into(),
-                };
-                container(img).max_width(size).max_height(size).into()
+                let display_path = sticker_path.unwrap_or_else(|| path.to_path_buf());
+                button(
+                    container(
+                        image(display_path.clone())
+                            .content_fit(ContentFit::ScaleDown),
+                    )
+                    .max_width(size)
+                    .max_height(size),
+                )
+                .on_press(Message::ImagePreview(display_path, url.clone()))
+                .padding(0)
+                .style(theme::button::bare)
+                .into()
             } else {
                 button(
                     container(
