@@ -108,6 +108,7 @@ pub enum Command {
     CyclePreviousUnreadBuffer,
     MarkAsRead,
     OpenConfigFile,
+    OpenStickerPicker,
 }
 
 macro_rules! default {
@@ -298,6 +299,7 @@ impl KeyBind {
     default!(open_config_file, ",", COMMAND);
     #[cfg(not(target_os = "macos"))]
     default!(open_config_file, ",", CTRL);
+    default!(open_sticker_picker, "s", CTRL | SHIFT);
 }
 
 impl From<(keyboard::Key, keyboard::Modifiers)> for KeyBind {

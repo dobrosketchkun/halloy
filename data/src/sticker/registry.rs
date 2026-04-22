@@ -1,3 +1,6 @@
+use std::collections::BTreeMap;
+use std::path::PathBuf;
+
 use indexmap::IndexMap;
 
 use super::{Pack, PackId};
@@ -45,7 +48,10 @@ impl Registry {
         let fetches = config.packs.into_iter().map(|entry| async move {
             let url = entry.url;
             match super::fetch::fetch_pack(url.clone()).await {
-                Ok(pack) => Some(pack),
+                Ok(pack) => {
+                    let pack = cache_pack_images(pack).await;
+                    Some(pack)
+                }
                 Err(err) => {
                     log::warn!("failed to load sticker pack from {url}: {err}");
                     None
@@ -61,4 +67,42 @@ impl Registry {
         }
         registry
     }
+}
+
+/// Download all image files for a pack (cover + every sticker) into the
+/// sticker cache directory, attaching the resolved local paths to the Pack.
+/// Failed downloads are silently skipped — the sticker just won't show a
+/// thumbnail in the picker.
+async fn cache_pack_images(mut pack: Pack) -> Pack {
+    let pack_dir = super::cache::pack_cache_dir(pack.id.as_str());
+
+    // Cover
+    if let Some(cover_file) = pack.manifest.cover.clone() {
+        if let Ok(cover_url) = pack.base_url.join(&cover_file) {
+            let dest = pack_dir.join(&cover_file);
+            pack.cover_path =
+                super::cache::ensure_cached(cover_url, dest).await;
+        }
+    }
+
+    // Stickers in parallel
+    let fetches = pack.manifest.stickers.iter().map(|s| {
+        let id = s.id.clone();
+        let file = s.file.clone();
+        let base = pack.base_url.clone();
+        let dest = pack_dir.join(&file);
+        async move {
+            let url = base.join(&file).ok()?;
+            let path = super::cache::ensure_cached(url, dest).await?;
+            Some((id, path))
+        }
+    });
+
+    let results = futures::future::join_all(fetches).await;
+    pack.sticker_paths = results
+        .into_iter()
+        .flatten()
+        .collect::<BTreeMap<String, PathBuf>>();
+
+    pack
 }
