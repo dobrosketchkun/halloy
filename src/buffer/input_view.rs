@@ -2990,7 +2990,9 @@ fn show_while_typing(error: &input::Error) -> bool {
             | command::Error::NoModeString
             | command::Error::Connected
             | command::Error::Disconnected
-            | command::Error::NotInChannel,
+            | command::Error::NotInChannel
+            | command::Error::InvalidStickerSpec { .. }
+            | command::Error::StickerNotFound { .. },
         ) => false,
     }
 }
