@@ -1,9 +1,24 @@
+pub mod fetch;
 pub mod pack;
+pub mod registry;
 pub mod wire;
 
 pub use pack::{Pack, PackManifest, StickerDef};
+pub use registry::Registry;
 
 use serde::{Deserialize, Serialize};
+
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    #[error("HTTP request failed: {0}")]
+    Http(#[from] reqwest::Error),
+    #[error("invalid JSON manifest: {0}")]
+    Json(#[from] serde_json::Error),
+    #[error("invalid pack URL: {0}")]
+    BadUrl(#[from] url::ParseError),
+    #[error("invalid pack id {0:?}")]
+    InvalidPackId(String),
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct PackId(String);
