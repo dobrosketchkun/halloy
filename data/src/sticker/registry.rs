@@ -58,25 +58,31 @@ impl Registry {
             return Self::new();
         }
 
-        let fetches = config.packs.into_iter().map(|entry| async move {
-            let url = entry.url;
-            match super::fetch::fetch_pack(url.clone()).await {
-                Ok(pack) => {
-                    let pack = cache_pack_images(pack).await;
-                    Some(pack)
-                }
-                Err(err) => {
-                    log::warn!("failed to load sticker pack from {url}: {err}");
-                    None
-                }
-            }
-        });
-
+        // Fetch all manifests in parallel (cheap — small JSON), then
+        // sequentially disambiguate + cache images in config order so the
+        // first-configured pack wins its unsuffixed id deterministically.
+        let urls: Vec<url::Url> =
+            config.packs.iter().map(|e| e.url.clone()).collect();
+        let fetches = config
+            .packs
+            .into_iter()
+            .map(|entry| super::fetch::fetch_pack(entry.url));
         let results = futures::future::join_all(fetches).await;
 
         let mut registry = Self::new();
-        for pack in results.into_iter().flatten() {
-            registry.insert(pack);
+        for (url, result) in urls.into_iter().zip(results.into_iter()) {
+            match result {
+                Ok(mut pack) => {
+                    super::disambiguate_local_id(&mut pack, &url, &registry);
+                    let cached = cache_pack_images(pack).await;
+                    registry.insert(cached);
+                }
+                Err(err) => {
+                    log::warn!(
+                        "failed to load sticker pack from {url}: {err}"
+                    );
+                }
+            }
         }
         registry
     }
