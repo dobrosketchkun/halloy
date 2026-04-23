@@ -22,4 +22,6 @@ impl Default for Sticker {
 #[derive(Debug, Clone, Deserialize)]
 pub struct PackEntry {
     pub url: Url,
+    #[serde(default)]
+    pub label: Option<String>,
 }

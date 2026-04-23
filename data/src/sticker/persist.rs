@@ -15,11 +15,13 @@ pub enum Error {
 }
 
 /// Rewrite the `[[sticker.packs]]` entries in the user's config.toml to
-/// match the given URL list, preserving all comments, formatting, and
-/// other sections. Atomic: writes to a temp file then renames.
+/// match the given entries, preserving all comments, formatting, and other
+/// sections. Atomic: writes to a temp file then renames.
 ///
 /// Other `[sticker]` fields (enabled, max_size_px, …) are left untouched.
-pub async fn save_pack_urls(urls: Vec<Url>) -> Result<(), Error> {
+pub async fn save_packs(
+    entries: Vec<(Url, Option<String>)>,
+) -> Result<(), Error> {
     let path = Config::path();
 
     let existing = match fs::read_to_string(&path).await {
@@ -40,9 +42,12 @@ pub async fn save_pack_urls(urls: Vec<Url>) -> Result<(), Error> {
     }
 
     let mut aot = ArrayOfTables::new();
-    for url in &urls {
+    for (url, label) in &entries {
         let mut t = Table::new();
         t["url"] = value(url.to_string());
+        if let Some(label) = label {
+            t["label"] = value(label.clone());
+        }
         aot.push(t);
     }
     doc["sticker"]["packs"] = Item::ArrayOfTables(aot);
@@ -53,14 +58,19 @@ pub async fn save_pack_urls(urls: Vec<Url>) -> Result<(), Error> {
     Ok(())
 }
 
-/// Snapshot the current shared registry's packs into their browseable URL
-/// form and persist to config.toml. This is what every manager-modal
-/// mutation (add/remove/reorder) calls after updating in-memory state.
+/// Snapshot the current shared registry's packs (URL + optional user label)
+/// and persist to config.toml. Every manager-modal mutation (add, remove,
+/// reorder, rename) calls this after updating in-memory state.
 pub async fn persist_registry() -> Result<(), Error> {
-    let urls: Vec<Url> = super::with_shared(|reg| {
+    let entries: Vec<(Url, Option<String>)> = super::with_shared(|reg| {
         reg.iter()
-            .map(|p| super::fetch::to_browseable_url(&p.base_url))
+            .map(|p| {
+                (
+                    super::fetch::to_browseable_url(&p.base_url),
+                    p.label.clone(),
+                )
+            })
             .collect()
     });
-    save_pack_urls(urls).await
+    save_packs(entries).await
 }

@@ -28,6 +28,10 @@ impl Registry {
         self.packs.get(id)
     }
 
+    pub fn get_mut(&mut self, id: &PackId) -> Option<&mut Pack> {
+        self.packs.get_mut(id)
+    }
+
     pub fn iter(&self) -> impl Iterator<Item = &Pack> {
         self.packs.values()
     }
@@ -85,8 +89,11 @@ impl Registry {
         // Fetch all manifests in parallel (cheap — small JSON), then
         // sequentially disambiguate + cache images in config order so the
         // first-configured pack wins its unsuffixed id deterministically.
-        let urls: Vec<url::Url> =
-            config.packs.iter().map(|e| e.url.clone()).collect();
+        let entries: Vec<(url::Url, Option<String>)> = config
+            .packs
+            .iter()
+            .map(|e| (e.url.clone(), e.label.clone()))
+            .collect();
         let fetches = config
             .packs
             .into_iter()
@@ -94,10 +101,11 @@ impl Registry {
         let results = futures::future::join_all(fetches).await;
 
         let mut registry = Self::new();
-        for (url, result) in urls.into_iter().zip(results.into_iter()) {
+        for ((url, label), result) in entries.into_iter().zip(results.into_iter()) {
             match result {
                 Ok(mut pack) => {
                     super::disambiguate_local_id(&mut pack, &url, &registry);
+                    pack.label = label;
                     let cached = cache_pack_images(pack).await;
                     registry.insert(cached);
                 }
