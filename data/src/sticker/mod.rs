@@ -231,3 +231,27 @@ pub async fn remove_and_persist(pack_id: PackId) -> Result<(), String> {
         .await
         .map_err(|e| format!("failed to save config: {e}"))
 }
+
+/// Swap the pack one slot up (toward the start of the list) and persist.
+/// No-op if the pack doesn't exist or is already first.
+pub async fn move_up_and_persist(pack_id: PackId) -> Result<(), String> {
+    let moved = with_shared_mut(|r| r.move_up(&pack_id));
+    if !moved {
+        return Ok(());
+    }
+    persist::persist_registry()
+        .await
+        .map_err(|e| format!("failed to save config: {e}"))
+}
+
+/// Swap the pack one slot down (toward the end) and persist. No-op if the
+/// pack doesn't exist or is already last.
+pub async fn move_down_and_persist(pack_id: PackId) -> Result<(), String> {
+    let moved = with_shared_mut(|r| r.move_down(&pack_id));
+    if !moved {
+        return Ok(());
+    }
+    persist::persist_registry()
+        .await
+        .map_err(|e| format!("failed to save config: {e}"))
+}
