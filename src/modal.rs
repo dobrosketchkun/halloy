@@ -14,6 +14,7 @@ pub mod image_preview;
 pub mod prompt_before_open_url;
 pub mod reload_configuration_error;
 pub mod sticker_info;
+pub mod sticker_manager;
 pub mod sticker_picker;
 
 #[derive(Debug)]
@@ -42,6 +43,7 @@ pub enum Modal {
     },
     StickerPicker(sticker_picker::State),
     StickerInfo(sticker_info::State),
+    StickerManager(sticker_manager::State),
 }
 
 #[derive(Debug, Clone)]
@@ -55,6 +57,7 @@ pub enum Message {
     ImagePreview(ImagePreview),
     StickerPicker(sticker_picker::Action),
     StickerInfo(sticker_info::Action),
+    StickerManager(sticker_manager::Action),
 }
 
 #[derive(Debug, Clone)]
@@ -95,6 +98,7 @@ impl Modal {
             Modal::ConfirmFileUpload { window, .. } => Some(*window),
             Modal::StickerPicker(..) => None,
             Modal::StickerInfo(..) => None,
+            Modal::StickerManager(..) => None,
         }
     }
 
@@ -151,6 +155,13 @@ impl Modal {
             }
             Message::StickerInfo(action) => {
                 if let Modal::StickerInfo(state) = self {
+                    (state.update(action), None)
+                } else {
+                    (Task::none(), None)
+                }
+            }
+            Message::StickerManager(action) => {
+                if let Modal::StickerManager(state) = self {
                     (state.update(action), None)
                 } else {
                     (Task::none(), None)
@@ -225,6 +236,7 @@ impl Modal {
             } => image_preview::view(source, url, timer, theme),
             Modal::StickerPicker(state) => state.view(theme),
             Modal::StickerInfo(state) => state.view(theme),
+            Modal::StickerManager(state) => state.view(theme),
         }
     }
 }

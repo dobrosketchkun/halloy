@@ -599,6 +599,12 @@ impl Halloy {
                         ));
                         Task::none()
                     }
+                    Some(dashboard::Event::OpenStickerManager) => {
+                        self.modal = Some(Modal::StickerManager(
+                            modal::sticker_manager::State::new(),
+                        ));
+                        Task::none()
+                    }
                     Some(dashboard::Event::PromptBeforeFileUpload {
                         upload_url,
                         has_credentials,

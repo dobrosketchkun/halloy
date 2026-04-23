@@ -115,6 +115,7 @@ pub enum Event {
     ToggleFullscreen,
     Remove(Server),
     OpenStickerPicker,
+    OpenStickerManager,
     PromptBeforeFileUpload {
         upload_url: String,
         has_credentials: bool,
@@ -1549,6 +1550,9 @@ impl Dashboard {
                     }
                     OpenStickerPicker => {
                         return (Task::none(), Some(Event::OpenStickerPicker));
+                    }
+                    OpenStickerManager => {
+                        return (Task::none(), Some(Event::OpenStickerManager));
                     }
                 }
             }
