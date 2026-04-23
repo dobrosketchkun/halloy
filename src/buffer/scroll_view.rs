@@ -1902,6 +1902,10 @@ fn preview_row<'a>(
                     &sticker_ref.sticker,
                 );
                 let display_path = sticker_path.unwrap_or_else(|| path.to_path_buf());
+                // Click opens the pack-info modal (handled via the
+                // ImagePreview event path intercepted in main.rs). Press-and-
+                // hold preview in chat needs scroll-view-level overlay state
+                // — deferred to a later slice.
                 button(
                     container(
                         image(display_path.clone())

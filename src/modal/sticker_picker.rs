@@ -2,7 +2,10 @@ use std::path::PathBuf;
 
 use data::sticker::{Pack, PackId, StickerId};
 use iced::Length;
-use iced::widget::{button, column, container, image, row, scrollable, text};
+use iced::widget::{
+    button, center, column, container, image, mouse_area, row, scrollable,
+    stack, text,
+};
 
 use super::Message as ModalMessage;
 use crate::widget::Element;
@@ -11,22 +14,35 @@ use crate::{Theme, theme};
 const COLS: usize = 4;
 const PACK_COVER_SIZE: u32 = 40;
 const STICKER_THUMB_SIZE: u32 = 80;
-const STICKER_HOVER_PREVIEW_SIZE: u32 = 240;
+const STICKER_HOLD_PREVIEW_SIZE: u32 = 240;
 const MODAL_WIDTH: f32 = 520.0;
 const MODAL_HEIGHT: f32 = 540.0;
 
 #[derive(Debug, Clone)]
 pub enum Action {
     SelectPack(PackId),
-    SelectSticker {
+    PressSticker {
+        pack_id: PackId,
+        sticker_id: StickerId,
+        path: PathBuf,
+    },
+    HoverWhilePressed(PathBuf),
+    ReleaseOn {
         pack_id: PackId,
         sticker_id: StickerId,
     },
+    ReleaseOutside,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct State {
     pub selected_pack: Option<PackId>,
+    // Which sticker was pressed — compared against on_release target to
+    // distinguish "quick click on same sticker" (send) from "held + moved
+    // across stickers" (cancel send, just previewing).
+    pressed: Option<(PackId, StickerId)>,
+    // The image currently being shown as a zoomed preview overlay.
+    preview: Option<PathBuf>,
 }
 
 pub struct Selected {
@@ -34,9 +50,6 @@ pub struct Selected {
     pub sticker_id: StickerId,
 }
 
-/// Owned snapshot of a pack taken from the registry while the read-lock is
-/// held. Lets `view()` build an iced `Element` without borrowing from the
-/// lock-scoped `&Registry` (which Element's lifetime couldn't outlive).
 struct PackView {
     id: PackId,
     name: String,
@@ -75,7 +88,11 @@ impl State {
         let selected_pack = data::sticker::with_shared(|reg| {
             reg.iter().next().map(|pack| pack.id.clone())
         });
-        Self { selected_pack }
+        Self {
+            selected_pack,
+            pressed: None,
+            preview: None,
+        }
     }
 
     pub fn update(&mut self, action: Action) -> Option<Selected> {
@@ -84,13 +101,43 @@ impl State {
                 self.selected_pack = Some(pack_id);
                 None
             }
-            Action::SelectSticker {
+            Action::PressSticker {
                 pack_id,
                 sticker_id,
-            } => Some(Selected {
+                path,
+            } => {
+                self.pressed = Some((pack_id, sticker_id));
+                self.preview = Some(path);
+                None
+            }
+            Action::HoverWhilePressed(path) => {
+                if self.pressed.is_some() {
+                    self.preview = Some(path);
+                }
+                None
+            }
+            Action::ReleaseOn {
                 pack_id,
                 sticker_id,
-            }),
+            } => {
+                let was_click = self.pressed.as_ref()
+                    == Some(&(pack_id.clone(), sticker_id.clone()));
+                self.pressed = None;
+                self.preview = None;
+                if was_click {
+                    Some(Selected {
+                        pack_id,
+                        sticker_id,
+                    })
+                } else {
+                    None
+                }
+            }
+            Action::ReleaseOutside => {
+                self.pressed = None;
+                self.preview = None;
+                None
+            }
         }
     }
 
@@ -98,8 +145,6 @@ impl State {
         &'a self,
         _theme: &'a Theme,
     ) -> Element<'a, ModalMessage> {
-        // Snapshot the registry into owned data so the returned Element
-        // isn't tied to the read-lock's lifetime.
         let packs: Vec<PackView> = data::sticker::with_shared(|reg| {
             reg.iter().map(PackView::from).collect()
         });
@@ -131,7 +176,7 @@ impl State {
             None => container(text("Select a pack.")).padding(20).into(),
         };
 
-        container(
+        let base = container(
             row![
                 container(pack_strip)
                     .width(Length::Fixed(PACK_COVER_SIZE as f32 + 20.0)),
@@ -142,8 +187,29 @@ impl State {
         .width(Length::Fixed(MODAL_WIDTH))
         .height(Length::Fixed(MODAL_HEIGHT))
         .style(theme::container::tooltip)
-        .padding(10)
-        .into()
+        .padding(10);
+
+        // Global release catches "press, move outside grid, release anywhere
+        // in the modal" so we always clear press state and don't leave a
+        // stale preview up.
+        let base_with_release: Element<'a, ModalMessage> =
+            mouse_area(base).on_release(stuck(Action::ReleaseOutside)).into();
+
+        match &self.preview {
+            Some(preview_path) => {
+                let overlay = center(
+                    container(
+                        image(preview_path.clone())
+                            .width(STICKER_HOLD_PREVIEW_SIZE)
+                            .height(STICKER_HOLD_PREVIEW_SIZE),
+                    )
+                    .padding(6)
+                    .style(theme::container::tooltip),
+                );
+                stack![base_with_release, overlay].into()
+            }
+            None => base_with_release,
+        }
     }
 }
 
@@ -177,39 +243,34 @@ fn sticker_grid_view<'a>(pack: &PackView) -> Element<'a, ModalMessage> {
     let mut current: Vec<Element<'a, ModalMessage>> = Vec::new();
 
     for sticker in &pack.stickers {
-        let btn = button(
+        let pack_id = pack.id.clone();
+        let sticker_id = sticker.id.clone();
+        let path = sticker.path.clone();
+
+        let thumb = container(
             image(sticker.path.clone())
                 .width(STICKER_THUMB_SIZE)
                 .height(STICKER_THUMB_SIZE),
         )
-        .on_press(ModalMessage::StickerPicker(Action::SelectSticker {
-            pack_id: pack.id.clone(),
-            sticker_id: sticker.id.clone(),
-        }))
-        .padding(2)
-        .style(theme::button::bare);
+        .padding(2);
 
-        // Hover-to-zoom preview: iced's tooltip with Position::FollowCursor
-        // gives us an image overlay that tracks the mouse across sticker
-        // cells continuously, with zero state to manage. The button below
-        // still receives the click, so a hover + release still sends.
-        let preview = container(
-            image(sticker.path.clone())
-                .width(STICKER_HOVER_PREVIEW_SIZE)
-                .height(STICKER_HOVER_PREVIEW_SIZE),
-        )
-        .padding(6)
-        .style(theme::container::tooltip);
+        // Per-sticker mouse_area handles press (start preview), enter (update
+        // preview when dragging), and release (send only if released on the
+        // originally-pressed sticker — i.e. a plain click).
+        let interactive: Element<'a, ModalMessage> = mouse_area(thumb)
+            .on_press(stuck(Action::PressSticker {
+                pack_id: pack_id.clone(),
+                sticker_id: sticker_id.clone(),
+                path: path.clone(),
+            }))
+            .on_enter(stuck(Action::HoverWhilePressed(path)))
+            .on_release(stuck(Action::ReleaseOn {
+                pack_id,
+                sticker_id,
+            }))
+            .into();
 
-        let with_hover: Element<'a, ModalMessage> = iced::widget::tooltip(
-            btn,
-            preview,
-            iced::widget::tooltip::Position::FollowCursor,
-        )
-        .delay(iced::time::Duration::from_millis(150))
-        .into();
-
-        current.push(with_hover);
+        current.push(interactive);
         if current.len() >= COLS {
             rows.push(std::mem::take(&mut current));
         }
@@ -236,4 +297,9 @@ fn empty_state<'a>() -> Element<'a, ModalMessage> {
     .width(Length::Fixed(MODAL_WIDTH))
     .style(theme::container::tooltip)
     .into()
+}
+
+/// Shorthand to wrap a picker Action in the outer ModalMessage variant.
+fn stuck(action: Action) -> ModalMessage {
+    ModalMessage::StickerPicker(action)
 }
