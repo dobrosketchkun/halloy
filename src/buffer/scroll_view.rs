@@ -69,6 +69,13 @@ pub enum Message {
         msgid: message::Id,
         text: Cow<'static, str>,
     },
+    StickerPressed {
+        url: url::Url,
+        path: PathBuf,
+    },
+    StickerHoldTimerExpired(url::Url),
+    StickerReleasedOn(url::Url, PathBuf),
+    StickerReleaseOutside,
 }
 
 impl From<context_menu::Message> for Message {
@@ -685,7 +692,7 @@ pub fn view<'a>(
         Message::ContentResized,
     );
 
-    correct_viewport(
+    let base = correct_viewport(
         Scrollable::new(container(content).width(Length::Fill).padding([0, 8]))
             .direction(scrollable::Direction::Vertical(
                 scrollable::Scrollbar::default()
@@ -704,7 +711,27 @@ pub fn view<'a>(
             .id(state.scrollable.clone()),
         state.scrollable.clone(),
         matches!(state.status, Status::Unlocked),
-    )
+    );
+
+    // Catch mouse-up events anywhere in the chat area so a press that
+    // leaves the sticker before release still clears the press state.
+    let with_global_release: Element<'a, Message> = mouse_area(base)
+        .on_release(Message::StickerReleaseOutside)
+        .into();
+
+    match &state.sticker_preview_path {
+        Some(preview_path) => {
+            let overlay = center(
+                container(
+                    image(preview_path.clone()).width(240).height(240),
+                )
+                .padding(6)
+                .style(theme::container::tooltip),
+            );
+            stack![with_global_release, overlay].into()
+        }
+        None => with_global_release,
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -721,6 +748,19 @@ pub struct State {
     visible_url_messages: HashMap<message::Hash, Vec<url::Url>>,
     pending_preview_exits: HashSet<message::Hash>,
     hovered_preview: Option<(message::Hash, usize)>,
+    // Press-and-hold sticker preview. `press_url` records which sticker the
+    // mouse went down on; `moved` flips true when the cursor enters any
+    // *other* sticker while the button is still held — that turns a would-be
+    // click into a cancel on release. `preview_path` drives the centered
+    // overlay rendered on top of the chat.
+    sticker_press: Option<StickerPressState>,
+    sticker_preview_path: Option<PathBuf>,
+}
+
+#[derive(Debug, Clone)]
+struct StickerPressState {
+    url: url::Url,
+    path: PathBuf,
 }
 
 impl State {
@@ -740,6 +780,8 @@ impl State {
             visible_url_messages: HashMap::new(),
             pending_preview_exits: HashSet::new(),
             hovered_preview: None,
+            sticker_press: None,
+            sticker_preview_path: None,
         }
     }
 
@@ -1157,6 +1199,53 @@ impl State {
             }
             Message::Unreacted { msgid, text } => {
                 send_reaction(clients, buffer, history, msgid, text, true);
+            }
+            Message::StickerPressed { url, path } => {
+                // Record the press without showing preview yet. The preview
+                // only appears after a 250ms hold — so a normal quick click
+                // never flashes an overlay. On release before the timer
+                // fires, state is cleared and the timer becomes a no-op.
+                self.sticker_press = Some(StickerPressState {
+                    url: url.clone(),
+                    path,
+                });
+                let timer_url = url;
+                return (
+                    Task::perform(
+                        time::sleep(Duration::from_millis(250)),
+                        move |()| {
+                            Message::StickerHoldTimerExpired(timer_url.clone())
+                        },
+                    ),
+                    None,
+                );
+            }
+            Message::StickerHoldTimerExpired(url) => {
+                // Only surface the preview if the user is still holding
+                // that same sticker.
+                if let Some(p) = self.sticker_press.as_ref()
+                    && p.url == url
+                {
+                    self.sticker_preview_path = Some(p.path.clone());
+                }
+            }
+            Message::StickerReleasedOn(release_url, path) => {
+                let was_click = self
+                    .sticker_press
+                    .as_ref()
+                    .is_some_and(|p| p.url == release_url);
+                self.sticker_press = None;
+                self.sticker_preview_path = None;
+                if was_click {
+                    return (
+                        Task::none(),
+                        Some(Event::ImagePreview(path, release_url)),
+                    );
+                }
+            }
+            Message::StickerReleaseOutside => {
+                self.sticker_press = None;
+                self.sticker_preview_path = None;
             }
         }
         (Task::none(), None)
@@ -1902,22 +1991,26 @@ fn preview_row<'a>(
                     &sticker_ref.sticker,
                 );
                 let display_path = sticker_path.unwrap_or_else(|| path.to_path_buf());
-                // Click opens the pack-info modal (handled via the
-                // ImagePreview event path intercepted in main.rs). Press-and-
-                // hold preview in chat needs scroll-view-level overlay state
-                // — deferred to a later slice.
-                button(
-                    container(
-                        image(display_path.clone())
-                            .content_fit(ContentFit::ScaleDown),
-                    )
-                    .max_width(size)
-                    .max_height(size),
+                // mouse_area (instead of button) so press/hover/release
+                // feed the scroll-view press-hold state machine. Quick click
+                // on the same sticker opens pack info; drag across cancels.
+                let thumb = container(
+                    image(display_path.clone())
+                        .content_fit(ContentFit::ScaleDown),
                 )
-                .on_press(Message::ImagePreview(display_path, url.clone()))
-                .padding(0)
-                .style(theme::button::bare)
-                .into()
+                .max_width(size)
+                .max_height(size);
+
+                mouse_area(thumb)
+                    .on_press(Message::StickerPressed {
+                        url: url.clone(),
+                        path: display_path.clone(),
+                    })
+                    .on_release(Message::StickerReleasedOn(
+                        url.clone(),
+                        display_path,
+                    ))
+                    .into()
             } else {
                 button(
                     container(
