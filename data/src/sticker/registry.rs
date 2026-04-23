@@ -40,6 +40,30 @@ impl Registry {
         self.packs.is_empty()
     }
 
+    /// Swap this pack one position earlier in the list. No-op if not found
+    /// or already first.
+    pub fn move_up(&mut self, id: &PackId) -> bool {
+        match self.packs.get_index_of(id) {
+            Some(idx) if idx > 0 => {
+                self.packs.swap_indices(idx, idx - 1);
+                true
+            }
+            _ => false,
+        }
+    }
+
+    /// Swap this pack one position later in the list. No-op if not found or
+    /// already last.
+    pub fn move_down(&mut self, id: &PackId) -> bool {
+        match self.packs.get_index_of(id) {
+            Some(idx) if idx + 1 < self.packs.len() => {
+                self.packs.swap_indices(idx, idx + 1);
+                true
+            }
+            _ => false,
+        }
+    }
+
     /// Fetch a single pack by URL and add it to the live registry.
     /// Used by the manager modal when the user pastes a new pack URL.
     pub async fn add_pack_from_url(
