@@ -166,17 +166,41 @@ pub fn pack_for_url(url: &url::Url) -> Option<PackId> {
     })
 }
 
+/// If `pack.id` already exists in `existing`, rewrite it to a locally-
+/// unique form by appending a short URL-derived hash. Both paths that
+/// insert packs (startup load from config and manual Add via the manager
+/// modal) go through this helper so behaviour is consistent.
+///
+/// Two unrelated packs can legitimately share the same `"id"` string in
+/// their `pack.json` (different authors using the same shortname); this
+/// keeps both in the registry under distinct keys. Cross-user wire-tag
+/// identity is best-effort — URL-based lookup (`pack_for_url`) is the
+/// authoritative resolution path for incoming sticker messages.
+pub(crate) fn disambiguate_local_id(
+    pack: &mut Pack,
+    url: &url::Url,
+    existing: &Registry,
+) {
+    if existing.get(&pack.id).is_none() {
+        return;
+    }
+    let hash = seahash::hash(url.as_str().as_bytes()) & 0xFF_FFFF;
+    if let Some(new_id) =
+        PackId::new(format!("{}_{hash:06x}", pack.id))
+    {
+        log::info!(
+            "pack id \"{}\" already loaded; using local id \"{}\" for {}",
+            pack.id,
+            new_id,
+            url
+        );
+        pack.id = new_id;
+    }
+}
+
 /// Orchestrates: fetch a pack.json + cache images + insert into shared
 /// registry + persist to config.toml. Any failure bubbles up as a
 /// human-readable error string for display in the manager modal.
-///
-/// Two unrelated packs can legitimately share the same `"id"` string in
-/// their `pack.json` (different authors using the same shortname). When
-/// that happens we disambiguate locally by appending a short URL-derived
-/// hash to the pack's id — both packs coexist in the registry with
-/// distinct keys. Cross-user wire-tag identity is best-effort; URL-based
-/// lookup (via `pack_for_url`) is the authoritative resolution path for
-/// incoming sticker messages.
 pub async fn add_and_persist(url: url::Url) -> Result<PackId, String> {
     let mut pack = fetch::fetch_pack(url.clone())
         .await
@@ -184,21 +208,7 @@ pub async fn add_and_persist(url: url::Url) -> Result<PackId, String> {
 
     // Disambiguate BEFORE caching images — image paths live under the
     // pack id's folder, so we want the final id settled first.
-    if with_shared(|r| r.get(&pack.id).is_some()) {
-        let hash = seahash::hash(url.as_str().as_bytes()) & 0xFF_FFFF;
-        let suffix = format!("{hash:06x}");
-        if let Some(new_id) =
-            PackId::new(format!("{}_{}", pack.id, suffix))
-        {
-            log::info!(
-                "pack id \"{}\" already loaded; using local id \"{}\" for {}",
-                pack.id,
-                new_id,
-                url
-            );
-            pack.id = new_id;
-        }
-    }
+    with_shared(|r| disambiguate_local_id(&mut pack, &url, r));
 
     let cached = registry::cache_pack_images(pack).await;
     let id = cached.id.clone();

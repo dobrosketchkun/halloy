@@ -11,6 +11,7 @@ use crate::{Theme, theme};
 const COLS: usize = 4;
 const PACK_COVER_SIZE: u32 = 40;
 const STICKER_THUMB_SIZE: u32 = 80;
+const STICKER_HOVER_PREVIEW_SIZE: u32 = 240;
 const MODAL_WIDTH: f32 = 520.0;
 const MODAL_HEIGHT: f32 = 540.0;
 
@@ -176,7 +177,7 @@ fn sticker_grid_view<'a>(pack: &PackView) -> Element<'a, ModalMessage> {
     let mut current: Vec<Element<'a, ModalMessage>> = Vec::new();
 
     for sticker in &pack.stickers {
-        let btn: Element<'a, ModalMessage> = button(
+        let btn = button(
             image(sticker.path.clone())
                 .width(STICKER_THUMB_SIZE)
                 .height(STICKER_THUMB_SIZE),
@@ -186,10 +187,29 @@ fn sticker_grid_view<'a>(pack: &PackView) -> Element<'a, ModalMessage> {
             sticker_id: sticker.id.clone(),
         }))
         .padding(2)
-        .style(theme::button::bare)
+        .style(theme::button::bare);
+
+        // Hover-to-zoom preview: iced's tooltip with Position::FollowCursor
+        // gives us an image overlay that tracks the mouse across sticker
+        // cells continuously, with zero state to manage. The button below
+        // still receives the click, so a hover + release still sends.
+        let preview = container(
+            image(sticker.path.clone())
+                .width(STICKER_HOVER_PREVIEW_SIZE)
+                .height(STICKER_HOVER_PREVIEW_SIZE),
+        )
+        .padding(6)
+        .style(theme::container::tooltip);
+
+        let with_hover: Element<'a, ModalMessage> = iced::widget::tooltip(
+            btn,
+            preview,
+            iced::widget::tooltip::Position::FollowCursor,
+        )
+        .delay(iced::time::Duration::from_millis(150))
         .into();
 
-        current.push(btn);
+        current.push(with_hover);
         if current.len() >= COLS {
             rows.push(std::mem::take(&mut current));
         }
