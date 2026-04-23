@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::path::PathBuf;
 
 use data::sticker::PackId;
@@ -12,7 +13,7 @@ use crate::widget::Element;
 use crate::{Theme, theme};
 
 const PACK_COVER_SIZE: u32 = 40;
-const MODAL_WIDTH: f32 = 560.0;
+const MODAL_WIDTH: f32 = 620.0;
 const MODAL_HEIGHT: f32 = 560.0;
 
 #[derive(Debug, Clone)]
@@ -25,6 +26,9 @@ pub enum Action {
     MoveUp(PackId),
     MoveDown(PackId),
     MoveResult(Result<(), String>),
+    LabelChanged(PackId, String),
+    LabelSubmit(PackId),
+    LabelResult(Result<(), String>),
 }
 
 #[derive(Debug, Default)]
@@ -32,11 +36,16 @@ pub struct State {
     url_input: String,
     busy: bool,
     error: Option<String>,
+    /// In-flight label edits per pack. Populated as the user types in the
+    /// row's text_input; committed to the registry + config.toml when the
+    /// user presses Enter (Action::LabelSubmit).
+    label_edits: HashMap<PackId, String>,
 }
 
 struct PackRow {
     id: PackId,
     name: String,
+    label: Option<String>,
     cover: Option<PathBuf>,
 }
 
@@ -131,6 +140,32 @@ impl State {
                 }
                 Task::none()
             }
+            Action::LabelChanged(pack_id, value) => {
+                self.label_edits.insert(pack_id, value);
+                Task::none()
+            }
+            Action::LabelSubmit(pack_id) => {
+                if self.busy {
+                    return Task::none();
+                }
+                let Some(new_label) = self.label_edits.remove(&pack_id)
+                else {
+                    return Task::none();
+                };
+                self.busy = true;
+                self.error = None;
+                Task::perform(
+                    data::sticker::set_label_and_persist(pack_id, new_label),
+                    |r| ModalMessage::StickerManager(Action::LabelResult(r)),
+                )
+            }
+            Action::LabelResult(result) => {
+                self.busy = false;
+                if let Err(msg) = result {
+                    self.error = Some(msg);
+                }
+                Task::none()
+            }
         }
     }
 
@@ -143,6 +178,7 @@ impl State {
                 .map(|p| PackRow {
                     id: p.id.clone(),
                     name: p.manifest.name.clone(),
+                    label: p.label.clone(),
                     cover: p.cover_path.clone(),
                 })
                 .collect()
@@ -158,7 +194,7 @@ impl State {
         } else {
             let entries: Vec<Element<'a, ModalMessage>> = rows
                 .into_iter()
-                .map(pack_row)
+                .map(|pack| pack_row(pack, &self.label_edits))
                 .collect();
             scrollable(column(entries).spacing(6).padding(4))
                 .height(Length::Fill)
@@ -219,7 +255,10 @@ impl State {
     }
 }
 
-fn pack_row<'a>(pack: PackRow) -> Element<'a, ModalMessage> {
+fn pack_row<'a>(
+    pack: PackRow,
+    label_edits: &HashMap<PackId, String>,
+) -> Element<'a, ModalMessage> {
     let cover: Element<'a, ModalMessage> = match pack.cover {
         Some(p) => image(p)
             .width(PACK_COVER_SIZE)
@@ -231,7 +270,25 @@ fn pack_row<'a>(pack: PackRow) -> Element<'a, ModalMessage> {
             .into(),
     };
 
-    let name = text(pack.name).width(Length::Fill);
+    // Display name: in-flight edit overrides saved label overrides manifest.
+    let displayed = label_edits
+        .get(&pack.id)
+        .cloned()
+        .unwrap_or_else(|| pack.label.clone().unwrap_or_default());
+    let pack_id_for_input = pack.id.clone();
+    let pack_id_for_submit = pack.id.clone();
+    let label_input = text_input(pack.name.as_str(), displayed.as_str())
+        .on_input(move |s| {
+            ModalMessage::StickerManager(Action::LabelChanged(
+                pack_id_for_input.clone(),
+                s,
+            ))
+        })
+        .on_submit(ModalMessage::StickerManager(Action::LabelSubmit(
+            pack_id_for_submit,
+        )))
+        .padding(4)
+        .width(Length::Fill);
 
     let up = button(text("↑"))
         .padding(4)
@@ -253,7 +310,7 @@ fn pack_row<'a>(pack: PackRow) -> Element<'a, ModalMessage> {
         .on_press(ModalMessage::StickerManager(Action::Remove(pack.id)));
 
     container(
-        row![cover, name, up, down, remove]
+        row![cover, label_input, up, down, remove]
             .spacing(6)
             .align_y(alignment::Vertical::Center),
     )

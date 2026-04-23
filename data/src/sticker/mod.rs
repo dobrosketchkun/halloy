@@ -255,3 +255,28 @@ pub async fn move_down_and_persist(pack_id: PackId) -> Result<(), String> {
         .await
         .map_err(|e| format!("failed to save config: {e}"))
 }
+
+/// Set a user-supplied display label for the pack and persist. Passing an
+/// empty string or all-whitespace clears the label (reverts to
+/// `manifest.name`).
+pub async fn set_label_and_persist(
+    pack_id: PackId,
+    label: String,
+) -> Result<(), String> {
+    let trimmed = label.trim();
+    let new_label = (!trimmed.is_empty()).then(|| trimmed.to_owned());
+    let changed = with_shared_mut(|r| {
+        if let Some(pack) = r.get_mut(&pack_id) {
+            pack.label = new_label;
+            true
+        } else {
+            false
+        }
+    });
+    if !changed {
+        return Ok(());
+    }
+    persist::persist_registry()
+        .await
+        .map_err(|e| format!("failed to save config: {e}"))
+}

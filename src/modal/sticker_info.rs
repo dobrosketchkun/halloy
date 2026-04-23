@@ -71,7 +71,7 @@ impl State {
     ) -> Element<'a, ModalMessage> {
         let snapshot = data::sticker::with_shared(|reg| {
             reg.get(&self.pack_id).map(|p| PackSnapshot {
-                name: p.manifest.name.clone(),
+                name: p.display_name().to_owned(),
                 author: p.manifest.author.clone(),
                 description: p.manifest.description.clone(),
                 // Show the browseable github.com URL, not the raw CDN form

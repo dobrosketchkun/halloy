@@ -48,6 +48,10 @@ pub struct Pack {
     /// from the manifest. Entries are only present for stickers whose
     /// images were successfully cached.
     pub sticker_paths: BTreeMap<String, PathBuf>,
+    /// User-supplied display name override from `config.toml`. When set,
+    /// `display_name()` returns this instead of `manifest.name`. Useful for
+    /// disambiguating packs that share a manifest name.
+    pub label: Option<String>,
 }
 
 impl Pack {
@@ -58,6 +62,7 @@ impl Pack {
             manifest,
             cover_path: None,
             sticker_paths: BTreeMap::new(),
+            label: None,
         }
     }
 
@@ -78,5 +83,13 @@ impl Pack {
 
     pub fn cover_url(&self) -> Option<Url> {
         self.base_url.join(self.manifest.cover.as_deref()?).ok()
+    }
+
+    /// User's label if they've set one, otherwise the pack.json `name`.
+    /// This is what every UI surface should display.
+    pub fn display_name(&self) -> &str {
+        self.label
+            .as_deref()
+            .unwrap_or(self.manifest.name.as_str())
     }
 }

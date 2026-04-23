@@ -76,7 +76,7 @@ impl From<&Pack> for PackView {
             .collect();
         PackView {
             id: pack.id.clone(),
-            name: pack.manifest.name.clone(),
+            name: pack.display_name().to_owned(),
             cover_path: pack.cover_path.clone(),
             stickers,
         }
