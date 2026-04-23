@@ -22,6 +22,9 @@ pub enum Action {
     AddResult(Result<PackId, String>),
     Remove(PackId),
     RemoveResult(Result<(), String>),
+    MoveUp(PackId),
+    MoveDown(PackId),
+    MoveResult(Result<(), String>),
 }
 
 #[derive(Debug, Default)]
@@ -93,6 +96,35 @@ impl State {
                 )
             }
             Action::RemoveResult(result) => {
+                self.busy = false;
+                if let Err(msg) = result {
+                    self.error = Some(msg);
+                }
+                Task::none()
+            }
+            Action::MoveUp(pack_id) => {
+                if self.busy {
+                    return Task::none();
+                }
+                self.busy = true;
+                self.error = None;
+                Task::perform(
+                    data::sticker::move_up_and_persist(pack_id),
+                    |r| ModalMessage::StickerManager(Action::MoveResult(r)),
+                )
+            }
+            Action::MoveDown(pack_id) => {
+                if self.busy {
+                    return Task::none();
+                }
+                self.busy = true;
+                self.error = None;
+                Task::perform(
+                    data::sticker::move_down_and_persist(pack_id),
+                    |r| ModalMessage::StickerManager(Action::MoveResult(r)),
+                )
+            }
+            Action::MoveResult(result) => {
                 self.busy = false;
                 if let Err(msg) = result {
                     self.error = Some(msg);
@@ -201,14 +233,28 @@ fn pack_row<'a>(pack: PackRow) -> Element<'a, ModalMessage> {
 
     let name = text(pack.name).width(Length::Fill);
 
+    let up = button(text("↑"))
+        .padding(4)
+        .style(|theme, status| theme::button::secondary(theme, status, false))
+        .on_press(ModalMessage::StickerManager(Action::MoveUp(
+            pack.id.clone(),
+        )));
+
+    let down = button(text("↓"))
+        .padding(4)
+        .style(|theme, status| theme::button::secondary(theme, status, false))
+        .on_press(ModalMessage::StickerManager(Action::MoveDown(
+            pack.id.clone(),
+        )));
+
     let remove = button(text("Remove"))
         .padding(4)
         .style(|theme, status| theme::button::secondary(theme, status, false))
         .on_press(ModalMessage::StickerManager(Action::Remove(pack.id)));
 
     container(
-        row![cover, name, remove]
-            .spacing(10)
+        row![cover, name, up, down, remove]
+            .spacing(6)
             .align_y(alignment::Vertical::Center),
     )
     .padding(6)
