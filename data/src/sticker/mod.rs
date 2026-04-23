@@ -1,6 +1,7 @@
 pub mod cache;
 pub mod fetch;
 pub mod pack;
+pub mod persist;
 pub mod registry;
 pub mod wire;
 
@@ -111,6 +112,16 @@ where
     f(&guard)
 }
 
+pub fn with_shared_mut<F, R>(f: F) -> R
+where
+    F: FnOnce(&mut Registry) -> R,
+{
+    let mut guard = shared_cell()
+        .write()
+        .expect("sticker registry lock poisoned");
+    f(&mut guard)
+}
+
 pub fn replace_shared(registry: Registry) {
     if let Ok(mut guard) = shared_cell().write() {
         *guard = registry;
@@ -153,4 +164,60 @@ pub fn pack_for_url(url: &url::Url) -> Option<PackId> {
         }
         None
     })
+}
+
+/// Orchestrates: fetch a pack.json + cache images + insert into shared
+/// registry + persist to config.toml. Any failure bubbles up as a
+/// human-readable error string for display in the manager modal.
+///
+/// Two unrelated packs can legitimately share the same `"id"` string in
+/// their `pack.json` (different authors using the same shortname). When
+/// that happens we disambiguate locally by appending a short URL-derived
+/// hash to the pack's id — both packs coexist in the registry with
+/// distinct keys. Cross-user wire-tag identity is best-effort; URL-based
+/// lookup (via `pack_for_url`) is the authoritative resolution path for
+/// incoming sticker messages.
+pub async fn add_and_persist(url: url::Url) -> Result<PackId, String> {
+    let mut pack = fetch::fetch_pack(url.clone())
+        .await
+        .map_err(|e| format!("failed to fetch pack: {e}"))?;
+
+    // Disambiguate BEFORE caching images — image paths live under the
+    // pack id's folder, so we want the final id settled first.
+    if with_shared(|r| r.get(&pack.id).is_some()) {
+        let hash = seahash::hash(url.as_str().as_bytes()) & 0xFF_FFFF;
+        let suffix = format!("{hash:06x}");
+        if let Some(new_id) =
+            PackId::new(format!("{}_{}", pack.id, suffix))
+        {
+            log::info!(
+                "pack id \"{}\" already loaded; using local id \"{}\" for {}",
+                pack.id,
+                new_id,
+                url
+            );
+            pack.id = new_id;
+        }
+    }
+
+    let cached = registry::cache_pack_images(pack).await;
+    let id = cached.id.clone();
+    log::info!("adding sticker pack {id}");
+    with_shared_mut(|r| r.insert(cached));
+    persist::persist_registry()
+        .await
+        .map_err(|e| format!("failed to save config: {e}"))?;
+    Ok(id)
+}
+
+/// Remove a pack from the shared registry and persist the updated list to
+/// config.toml. No-op (still returns Ok) if the pack isn't loaded.
+pub async fn remove_and_persist(pack_id: PackId) -> Result<(), String> {
+    let removed = with_shared_mut(|r| r.remove(&pack_id)).is_some();
+    if !removed {
+        return Ok(());
+    }
+    persist::persist_registry()
+        .await
+        .map_err(|e| format!("failed to save config: {e}"))
 }

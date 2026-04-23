@@ -40,6 +40,19 @@ impl Registry {
         self.packs.is_empty()
     }
 
+    /// Fetch a single pack by URL and add it to the live registry.
+    /// Used by the manager modal when the user pastes a new pack URL.
+    pub async fn add_pack_from_url(
+        &mut self,
+        url: url::Url,
+    ) -> Result<PackId, super::Error> {
+        let pack = super::fetch::fetch_pack(url).await?;
+        let cached = cache_pack_images(pack).await;
+        let id = cached.id.clone();
+        self.insert(cached);
+        Ok(id)
+    }
+
     pub async fn load_from_config(config: config::Sticker) -> Self {
         if !config.enabled {
             return Self::new();
@@ -73,7 +86,7 @@ impl Registry {
 /// sticker cache directory, attaching the resolved local paths to the Pack.
 /// Failed downloads are silently skipped — the sticker just won't show a
 /// thumbnail in the picker.
-async fn cache_pack_images(mut pack: Pack) -> Pack {
+pub async fn cache_pack_images(mut pack: Pack) -> Pack {
     let pack_dir = super::cache::pack_cache_dir(pack.id.as_str());
 
     // Cover

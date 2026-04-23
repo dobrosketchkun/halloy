@@ -39,6 +39,7 @@ pub struct Keyboard {
     pub quit_application: KeyBinds,
     pub open_config_file: KeyBinds,
     pub open_sticker_picker: KeyBinds,
+    pub open_sticker_manager: KeyBinds,
 }
 
 impl Default for Keyboard {
@@ -78,6 +79,7 @@ impl Default for Keyboard {
             quit_application: KeyBind::quit_application().into(),
             open_config_file: KeyBind::open_config_file().into(),
             open_sticker_picker: KeyBind::open_sticker_picker().into(),
+            open_sticker_manager: KeyBind::open_sticker_manager().into(),
         }
     }
 }
@@ -132,6 +134,7 @@ impl Keyboard {
         push(&self.quit_application, QuitApplication);
         push(&self.open_config_file, OpenConfigFile);
         push(&self.open_sticker_picker, OpenStickerPicker);
+        push(&self.open_sticker_manager, OpenStickerManager);
 
         shortcuts
     }
