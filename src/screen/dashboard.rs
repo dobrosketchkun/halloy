@@ -92,10 +92,12 @@ pub enum Message {
     Filehost(filehost::Message),
     ProceedWithFilehostUpload,
     CancelFilehostUpload,
+    // === halloy-stickers fork: BEGIN ===
     SendSticker {
         pack_id: data::sticker::PackId,
         sticker_id: data::sticker::StickerId,
     },
+    // === halloy-stickers fork: END ===
 }
 
 #[derive(Debug)]
@@ -115,8 +117,10 @@ pub enum Event {
     ImagePreview(PathBuf, url::Url),
     ToggleFullscreen,
     Remove(Server),
+    // === halloy-stickers fork: BEGIN ===
     OpenStickerPicker,
     OpenStickerManager,
+    // === halloy-stickers fork: END ===
     PromptBeforeFileUpload {
         upload_url: String,
         has_credentials: bool,
@@ -1559,12 +1563,14 @@ impl Dashboard {
                     OpenConfigFile => {
                         let _ = open_url::open(Config::path());
                     }
+                    // === halloy-stickers fork: BEGIN ===
                     OpenStickerPicker => {
                         return (Task::none(), Some(Event::OpenStickerPicker));
                     }
                     OpenStickerManager => {
                         return (Task::none(), Some(Event::OpenStickerManager));
                     }
+                    // === halloy-stickers fork: END ===
                 }
             }
             Message::FileTransfer(update) => {
@@ -1772,6 +1778,7 @@ impl Dashboard {
                 let task = self.filehost.cancel().map(Message::Filehost);
                 return (task, None);
             }
+            // === halloy-stickers fork: BEGIN ===
             Message::SendSticker {
                 pack_id,
                 sticker_id,
@@ -1811,6 +1818,7 @@ impl Dashboard {
                 }
                 return (Task::none(), None);
             }
+            // === halloy-stickers fork: END ===
         }
 
         (Task::none(), None)

@@ -38,8 +38,10 @@ pub struct Keyboard {
     pub mark_as_read: KeyBinds,
     pub quit_application: KeyBinds,
     pub open_config_file: KeyBinds,
+    // === halloy-stickers fork: BEGIN ===
     pub open_sticker_picker: KeyBinds,
     pub open_sticker_manager: KeyBinds,
+    // === halloy-stickers fork: END ===
 }
 
 impl Default for Keyboard {
@@ -78,8 +80,10 @@ impl Default for Keyboard {
             mark_as_read: KeyBind::mark_as_read().into(),
             quit_application: KeyBind::quit_application().into(),
             open_config_file: KeyBind::open_config_file().into(),
+            // === halloy-stickers fork: BEGIN ===
             open_sticker_picker: KeyBind::open_sticker_picker().into(),
             open_sticker_manager: KeyBind::open_sticker_manager().into(),
+            // === halloy-stickers fork: END ===
         }
     }
 }
@@ -133,8 +137,10 @@ impl Keyboard {
         push(&self.mark_as_read, MarkAsRead);
         push(&self.quit_application, QuitApplication);
         push(&self.open_config_file, OpenConfigFile);
+        // === halloy-stickers fork: BEGIN ===
         push(&self.open_sticker_picker, OpenStickerPicker);
         push(&self.open_sticker_manager, OpenStickerManager);
+        // === halloy-stickers fork: END ===
 
         shortcuts
     }

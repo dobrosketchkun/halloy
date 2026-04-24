@@ -62,7 +62,9 @@ serde_ignored = "0.1"
 serde-untagged = "0.1"
 sha2 = "0.11.0"
 toml = { version = "1.0.6", features = ["preserve_order"] }
+# === halloy-stickers fork: BEGIN ===
 toml_edit = "0.25"
+# === halloy-stickers fork: END ===
 fancy-regex = "0.17"
 walkdir = "2.5.0"
 derive_more = { version = "2.0.1", features = ["full"] }
