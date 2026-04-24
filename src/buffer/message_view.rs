@@ -493,45 +493,54 @@ impl<'a> ChannelQueryLayout<'a> {
             }
         });
 
-        let message_content = message_content::with_context(
-            &message.content,
-            self.server,
-            self.chantypes,
-            self.casemapping,
-            self.theme,
-            Message::Link,
-            None,
-            message_style,
-            theme::font_style::primary,
-            color_transformation,
-            move |link| match link {
-                message::Link::User(_, _) => {
-                    if rerouted_private && !is_ourself {
-                        vec![context_menu::Entry::Whois]
-                    } else {
-                        context_menu::Entry::user_list(
-                            formatter.target.is_channel(),
-                            user_in_channel,
-                            formatter.target.our_user(),
-                            formatter.config.file_transfer.enabled,
-                        )
+        // For sticker messages, drop the body text entirely — the URL is
+        // still in the wire format so non-halloy clients see a clickable
+        // link, but inside halloy we render the image below and the raw
+        // URL text above it is redundant clutter.
+        let message_content: Element<'a, Message> = if message.sticker.is_some()
+        {
+            Space::new().into()
+        } else {
+            message_content::with_context(
+                &message.content,
+                self.server,
+                self.chantypes,
+                self.casemapping,
+                self.theme,
+                Message::Link,
+                None,
+                message_style,
+                theme::font_style::primary,
+                color_transformation,
+                move |link| match link {
+                    message::Link::User(_, _) => {
+                        if rerouted_private && !is_ourself {
+                            vec![context_menu::Entry::Whois]
+                        } else {
+                            context_menu::Entry::user_list(
+                                formatter.target.is_channel(),
+                                user_in_channel,
+                                formatter.target.our_user(),
+                                formatter.config.file_transfer.enabled,
+                            )
+                        }
                     }
-                }
-                message::Link::Url(_) => formatter.url_entries(message, link),
-                _ => vec![],
-            },
-            move |link, entry, length| {
-                entry
-                    .view(
-                        formatter.link_context(message, link),
-                        length,
-                        formatter.config,
-                        formatter.theme,
-                    )
-                    .map(Message::ContextMenu)
-            },
-            self.config,
-        );
+                    message::Link::Url(_) => formatter.url_entries(message, link),
+                    _ => vec![],
+                },
+                move |link, entry, length| {
+                    entry
+                        .view(
+                            formatter.link_context(message, link),
+                            length,
+                            formatter.config,
+                            formatter.theme,
+                        )
+                        .map(Message::ContextMenu)
+                },
+                self.config,
+            )
+        };
 
         let after_content =
             self.reaction_row(message).into_iter().chain(not_sent_row);
