@@ -138,6 +138,20 @@ my-sticker-repo/
 - `id` — URL-safe identifier. Used in the wire-format tag when sending a sticker.
 - `name` — human-readable display name.
 - `emoji` — matches Telegram's data model: a string of one or more emoji associated with the sticker. All are used for search.
+- `file` — either a **relative filename** resolved against the pack folder's URL (ordinary case, images live alongside `pack.json`), **or an absolute `http`/`https` URL** pointing anywhere else. This lets a pack author keep `pack.json` on GitHub while hosting individual stickers on a CDN, imgur, a shared image repo, etc. The `cover` field accepts the same two forms.
+
+```json
+{
+  "id": "mix",
+  "name": "Mixed hosting",
+  "version": 1,
+  "stickers": [
+    { "id": "local",  "file": "01.webp",                          "emoji": "😐" },
+    { "id": "cdn",    "file": "https://i.imgur.com/abc123.webp",  "emoji": "👍" },
+    { "id": "shared", "file": "https://example.com/common/x.png", "emoji": "🎉" }
+  ]
+}
+```
 
 ## Wire format
 
