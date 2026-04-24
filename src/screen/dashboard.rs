@@ -1807,6 +1807,7 @@ impl Dashboard {
                         encoded,
                         TokenPriority::User,
                     );
+                    data::sticker::push_recent(pack_id, sticker_id);
                 }
                 return (Task::none(), None);
             }

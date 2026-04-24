@@ -2,6 +2,7 @@ pub mod cache;
 pub mod fetch;
 pub mod pack;
 pub mod persist;
+pub mod recents;
 pub mod registry;
 pub mod wire;
 
@@ -94,12 +95,63 @@ impl std::fmt::Display for StickerRef {
 // the RwLock contention is a non-issue.
 // ============================================================================
 
+use std::collections::VecDeque;
 use std::sync::{Arc, OnceLock, RwLock};
 
 static SHARED: OnceLock<Arc<RwLock<Registry>>> = OnceLock::new();
+static SHARED_RECENTS: OnceLock<Arc<RwLock<VecDeque<StickerRef>>>> =
+    OnceLock::new();
+
+const MAX_RECENTS: usize = 24;
 
 fn shared_cell() -> &'static Arc<RwLock<Registry>> {
     SHARED.get_or_init(|| Arc::new(RwLock::new(Registry::default())))
+}
+
+fn recents_cell() -> &'static Arc<RwLock<VecDeque<StickerRef>>> {
+    SHARED_RECENTS
+        .get_or_init(|| Arc::new(RwLock::new(VecDeque::new())))
+}
+
+/// Record a sticker send in the MRU recents list and persist to disk.
+/// Moves the entry to the front if already present (so repeatedly sending
+/// the same sticker doesn't fill up recents with duplicates). Capped at
+/// `MAX_RECENTS`.
+pub fn push_recent(pack_id: PackId, sticker_id: StickerId) {
+    let snapshot: Vec<StickerRef> = {
+        let Ok(mut guard) = recents_cell().write() else {
+            return;
+        };
+        let new_ref = StickerRef {
+            pack: pack_id,
+            sticker: sticker_id,
+        };
+        guard.retain(|r| r != &new_ref);
+        guard.push_front(new_ref);
+        while guard.len() > MAX_RECENTS {
+            guard.pop_back();
+        }
+        guard.iter().cloned().collect()
+    };
+    if let Err(err) = recents::save_sync(&snapshot) {
+        log::warn!("failed to save sticker recents: {err}");
+    }
+}
+
+/// Install a previously-loaded recents snapshot into the shared cell.
+/// Called once at startup after reading `sticker_recents.json`.
+pub fn replace_shared_recents(new: VecDeque<StickerRef>) {
+    if let Ok(mut guard) = recents_cell().write() {
+        *guard = new;
+    }
+}
+
+/// Snapshot of recents in MRU order. Most-recently-sent first.
+pub fn recents() -> Vec<StickerRef> {
+    recents_cell()
+        .read()
+        .map(|g| g.iter().cloned().collect())
+        .unwrap_or_default()
 }
 
 pub fn with_shared<F, R>(f: F) -> R
