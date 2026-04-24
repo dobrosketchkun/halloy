@@ -126,13 +126,14 @@ impl Registry {
 /// thumbnail in the picker.
 pub async fn cache_pack_images(mut pack: Pack) -> Pack {
     let pack_dir = super::cache::pack_cache_dir(pack.id.as_str());
+    let max_bytes = super::shared_config().max_image_bytes;
 
     // Cover
     if let Some(cover_file) = pack.manifest.cover.clone() {
         if let Ok(cover_url) = pack.base_url.join(&cover_file) {
             let dest = pack_dir.join(&cover_file);
             pack.cover_path =
-                super::cache::ensure_cached(cover_url, dest).await;
+                super::cache::ensure_cached(cover_url, dest, max_bytes).await;
         }
     }
 
@@ -144,7 +145,8 @@ pub async fn cache_pack_images(mut pack: Pack) -> Pack {
         let dest = pack_dir.join(&file);
         async move {
             let url = base.join(&file).ok()?;
-            let path = super::cache::ensure_cached(url, dest).await?;
+            let path =
+                super::cache::ensure_cached(url, dest, max_bytes).await?;
             Some((id, path))
         }
     });
