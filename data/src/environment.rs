@@ -12,12 +12,18 @@ pub const RELEASE_WEBSITE: &str =
     "https://github.com/squidowl/halloy/releases/latest";
 pub const SOURCE_WEBSITE: &str = "https://github.com/squidowl/halloy/";
 
+/// Fork identifier appended to the version string in logs and the About
+/// modal, so it's obvious this binary isn't stock halloy. `None` for a
+/// clean upstream build.
+pub const FORK: Option<&str> = Some("stickerpacks");
+
 pub fn formatted_version() -> String {
     let hash = GIT_HASH
         .map(|hash| format!(" ({hash})"))
         .unwrap_or_default();
+    let fork = FORK.map(|f| format!(" +{f}")).unwrap_or_default();
 
-    format!("{VERSION}{hash}")
+    format!("{VERSION}{hash}{fork}")
 }
 
 pub fn config_dir() -> PathBuf {

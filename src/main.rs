@@ -324,6 +324,11 @@ impl Halloy {
         let sticker_config = config.sticker.clone();
         let check_for_update_on_launch = config.check_for_update_on_launch;
 
+        // Publish sticker config to the data layer's shared cell so fetch
+        // and cache modules can honour size limits without threading
+        // config through every async call site.
+        data::sticker::set_shared_config(sticker_config.clone());
+
         // Load sticker recents from disk synchronously — it's a tiny JSON
         // file (~1 KB), and the picker's initial view should reflect the
         // user's history before they interact with anything.
@@ -1468,6 +1473,10 @@ impl Halloy {
                 self.notifications = Notifications::new(&updated);
 
                 self.config = updated;
+
+                // Republish sticker config so size limits stay in sync
+                // with what the user just edited.
+                sticker::set_shared_config(self.config.sticker.clone());
 
                 let reload_registry = Task::perform(
                     sticker::Registry::load_from_config(

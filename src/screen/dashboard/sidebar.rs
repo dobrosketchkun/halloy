@@ -396,7 +396,12 @@ impl Sidebar {
                                     None,
                                     icon::documentation(),
                                     Message::OpenAbout {
-                                        version: version.current.clone(),
+                                        // formatted_version() includes the
+                                        // fork stamp (+stickerpacks) so the
+                                        // About modal reflects it too, not
+                                        // just the startup log.
+                                        version:
+                                            data::environment::formatted_version(),
                                         commit: data::environment::GIT_HASH
                                             .map(str::trim)
                                             .filter(|hash| !hash.is_empty())
