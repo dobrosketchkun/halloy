@@ -176,10 +176,12 @@ impl Encoded {
     }
 }
 
+// === halloy-stickers fork: BEGIN ===
 fn detect_sticker(encoded: &Encoded) -> Option<sticker::StickerRef> {
     let value = encoded.tags.get(sticker::wire::TAG)?;
     sticker::wire::decode(value)
 }
+// === halloy-stickers fork: END ===
 
 fn received_command(encoded: &Encoded) -> Option<command::Irc> {
     match &encoded.command {
@@ -333,7 +335,9 @@ pub struct Message {
     pub rerouted_from: Option<Target>,
     pub deduplicate: bool,
     pub redaction: Option<Redaction>,
+    // === halloy-stickers fork: BEGIN ===
     pub sticker: Option<sticker::StickerRef>,
+    // === halloy-stickers fork: END ===
 }
 
 impl Message {
@@ -445,7 +449,9 @@ impl Message {
             statusmsg,
             casemapping,
         )?;
+        // === halloy-stickers fork: BEGIN ===
         let sticker = detect_sticker(&encoded);
+        // === halloy-stickers fork: END ===
         let (content, _) = content(
             encoded,
             &target,
@@ -482,7 +488,9 @@ impl Message {
             rerouted_from,
             deduplicate,
             redaction: None,
+            // === halloy-stickers fork: BEGIN ===
             sticker,
+            // === halloy-stickers fork: END ===
         })
     }
 
@@ -518,7 +526,9 @@ impl Message {
             statusmsg,
             casemapping,
         )?;
+        // === halloy-stickers fork: BEGIN ===
         let sticker = detect_sticker(&encoded);
+        // === halloy-stickers fork: END ===
         let (content, highlight) = content(
             encoded,
             &target,
@@ -555,7 +565,9 @@ impl Message {
             rerouted_from,
             deduplicate,
             redaction: None,
+            // === halloy-stickers fork: BEGIN ===
             sticker,
+            // === halloy-stickers fork: END ===
         };
 
         let highlight = highlight.and_then(|kind| {
@@ -635,7 +647,9 @@ impl Message {
             rerouted_from: None,
             deduplicate: false,
             redaction: None,
+            // === halloy-stickers fork: BEGIN ===
             sticker: None,
+            // === halloy-stickers fork: END ===
         }
     }
 
@@ -675,7 +689,9 @@ impl Message {
             rerouted_from: None,
             deduplicate: false,
             redaction: None,
+            // === halloy-stickers fork: BEGIN ===
             sticker: None,
+            // === halloy-stickers fork: END ===
         }
     }
 
@@ -713,7 +729,9 @@ impl Message {
             rerouted_from: None,
             deduplicate: false,
             redaction: None,
+            // === halloy-stickers fork: BEGIN ===
             sticker: None,
+            // === halloy-stickers fork: END ===
         }
     }
 
@@ -806,7 +824,9 @@ impl Message {
             rerouted_from: None,
             deduplicate: false,
             redaction: None,
+            // === halloy-stickers fork: BEGIN ===
             sticker: None,
+            // === halloy-stickers fork: END ===
         }
     }
 
@@ -879,8 +899,10 @@ impl Serialize for Message {
             reactions: &'a [Reaction],
             rerouted_from: &'a Option<Target>,
             redaction: &'a Option<Redaction>,
+            // === halloy-stickers fork: BEGIN ===
             #[serde(skip_serializing_if = "Option::is_none")]
             sticker: &'a Option<sticker::StickerRef>,
+            // === halloy-stickers fork: END ===
         }
 
         Data {
@@ -898,7 +920,9 @@ impl Serialize for Message {
             reactions: &self.reactions,
             rerouted_from: &self.rerouted_from,
             redaction: &self.redaction,
+            // === halloy-stickers fork: BEGIN ===
             sticker: &self.sticker,
+            // === halloy-stickers fork: END ===
         }
         .serialize(serializer)
     }
@@ -936,8 +960,10 @@ impl<'de> Deserialize<'de> for Message {
             rerouted_from: Option<Target>,
             #[serde(default, deserialize_with = "fail_as_none")]
             redaction: Option<Redaction>,
+            // === halloy-stickers fork: BEGIN ===
             #[serde(default, deserialize_with = "fail_as_none")]
             sticker: Option<sticker::StickerRef>,
+            // === halloy-stickers fork: END ===
         }
 
         let Data {
@@ -955,7 +981,9 @@ impl<'de> Deserialize<'de> for Message {
             reactions,
             rerouted_from,
             redaction,
+            // === halloy-stickers fork: BEGIN ===
             sticker,
+            // === halloy-stickers fork: END ===
         } = Data::deserialize(deserializer)?;
 
         let content = if let Some(content) = content {
@@ -992,7 +1020,9 @@ impl<'de> Deserialize<'de> for Message {
             rerouted_from,
             deduplicate: false,
             redaction,
+            // === halloy-stickers fork: BEGIN ===
             sticker,
+            // === halloy-stickers fork: END ===
         })
     }
 }
@@ -1189,7 +1219,9 @@ pub fn condense(
             rerouted_from: None,
             deduplicate: false,
             redaction: None,
+            // === halloy-stickers fork: BEGIN ===
             sticker: None,
+            // === halloy-stickers fork: END ===
         }))
     } else {
         None

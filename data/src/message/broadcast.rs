@@ -48,7 +48,9 @@ fn expand(
             rerouted_from: None,
             deduplicate: false,
             redaction: None,
+            // === halloy-stickers fork: BEGIN ===
             sticker: None,
+            // === halloy-stickers fork: END ===
         }
     };
 

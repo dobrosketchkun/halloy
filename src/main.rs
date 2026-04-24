@@ -182,7 +182,9 @@ struct Halloy {
     current_mode: appearance::Mode,
     theme: Theme,
     config: Config,
+    // === halloy-stickers fork: BEGIN ===
     sticker_registry: sticker::Registry,
+    // === halloy-stickers fork: END ===
     clients: data::client::Map,
     servers: server::Map,
     controllers: stream::Map,
@@ -263,7 +265,9 @@ impl Halloy {
                 servers,
                 controllers: stream::Map::default(),
                 config,
+                // === halloy-stickers fork: BEGIN ===
                 sticker_registry: sticker::Registry::default(),
+                // === halloy-stickers fork: END ===
                 modal: None,
                 main_window,
                 focused_window: None,
@@ -294,7 +298,9 @@ pub enum Message {
     Tick(Instant),
     AnimationTick(Instant),
     Version(Option<String>),
+    // === halloy-stickers fork: BEGIN ===
     StickerRegistryLoaded(sticker::Registry),
+    // === halloy-stickers fork: END ===
     Modal(modal::Message),
     RouteReceived(String),
     AppearanceChange(appearance::Mode),
@@ -325,9 +331,12 @@ impl Halloy {
         let default_config = Config::default();
         let config = config_load.as_ref().unwrap_or(&default_config);
         let proxy_config = config.proxy.clone();
+        // === halloy-stickers fork: BEGIN ===
         let sticker_config = config.sticker.clone();
+        // === halloy-stickers fork: END ===
         let check_for_update_on_launch = config.check_for_update_on_launch;
 
+        // === halloy-stickers fork: BEGIN ===
         // Publish sticker config to the data layer's shared cell so fetch
         // and cache modules can honour size limits without threading
         // config through every async call site.
@@ -339,6 +348,7 @@ impl Halloy {
         data::sticker::replace_shared_recents(
             data::sticker::recents::load_sync(),
         );
+        // === halloy-stickers fork: END ===
         let window_size = iced::Size::new(
             config
                 .window
@@ -388,10 +398,12 @@ impl Halloy {
             ));
         }
 
+        // === halloy-stickers fork: BEGIN ===
         commands.push(Task::perform(
             sticker::Registry::load_from_config(sticker_config),
             Message::StickerRegistryLoaded,
         ));
+        // === halloy-stickers fork: END ===
 
         if let Some(url) = url_received {
             commands.push(halloy.handle_url(url));
@@ -580,6 +592,7 @@ impl Halloy {
                         }
                     }
                     Some(dashboard::Event::ImagePreview(path, url)) => {
+                        // === halloy-stickers fork: BEGIN ===
                         // If the URL matches a loaded sticker, open the
                         // pack-info modal instead of the image preview.
                         // Sticker messages route through this event path
@@ -593,6 +606,7 @@ impl Halloy {
                             ));
                             return Task::none();
                         }
+                        // === halloy-stickers fork: END ===
 
                         let Some((id, _, _)) = dashboard.get_focused() else {
                             return Task::none();
@@ -609,6 +623,7 @@ impl Halloy {
                     Some(dashboard::Event::Remove(server)) => {
                         self.remove(server)
                     }
+                    // === halloy-stickers fork: BEGIN ===
                     Some(dashboard::Event::OpenStickerPicker) => {
                         self.modal = Some(Modal::StickerPicker(
                             modal::sticker_picker::State::new(),
@@ -621,6 +636,7 @@ impl Halloy {
                         ));
                         Task::none()
                     }
+                    // === halloy-stickers fork: END ===
                     Some(dashboard::Event::PromptBeforeFileUpload {
                         upload_url,
                         has_credentials,
@@ -695,11 +711,13 @@ impl Halloy {
 
                 Task::none()
             }
+            // === halloy-stickers fork: BEGIN ===
             Message::StickerRegistryLoaded(registry) => {
                 sticker::replace_shared(registry.clone());
                 self.sticker_registry = registry;
                 Task::none()
             }
+            // === halloy-stickers fork: END ===
             Message::Help(message) => {
                 let Screen::Help(help) = &mut self.screen else {
                     return Task::none();
@@ -1068,6 +1086,7 @@ impl Halloy {
                                 }
                             }
                         }
+                        // === halloy-stickers fork: BEGIN ===
                         modal::Event::SelectedSticker {
                             pack_id,
                             sticker_id,
@@ -1080,6 +1099,7 @@ impl Halloy {
                                 },
                             ));
                         }
+                        // === halloy-stickers fork: END ===
                     }
                 }
 
@@ -1525,6 +1545,7 @@ impl Halloy {
 
                 self.config = updated;
 
+                // === halloy-stickers fork: BEGIN ===
                 // Republish sticker config so size limits stay in sync
                 // with what the user just edited.
                 sticker::set_shared_config(self.config.sticker.clone());
@@ -1535,6 +1556,7 @@ impl Halloy {
                     ),
                     Message::StickerRegistryLoaded,
                 );
+                // === halloy-stickers fork: END ===
 
                 for (server, _) in removed_servers {
                     self.clients.quit(
@@ -1558,6 +1580,7 @@ impl Halloy {
                     // be reprocessed; that is already performed by
                     // update_filters, so it does not need to be done again.
 
+                    // === halloy-stickers fork: BEGIN ===
                     return Task::batch([
                         dashboard
                             .reload_visible_previews(
@@ -1570,6 +1593,7 @@ impl Halloy {
                 }
 
                 return reload_registry;
+                // === halloy-stickers fork: END ===
             }
             Err(error) => {
                 self.modal = Some(Modal::ReloadConfigurationError(error));

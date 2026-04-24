@@ -13,9 +13,11 @@ pub mod connect_to_server;
 pub mod image_preview;
 pub mod prompt_before_open_url;
 pub mod reload_configuration_error;
+// === halloy-stickers fork: BEGIN ===
 pub mod sticker_info;
 pub mod sticker_manager;
 pub mod sticker_picker;
+// === halloy-stickers fork: END ===
 
 #[derive(Debug)]
 pub enum Modal {
@@ -41,9 +43,11 @@ pub enum Modal {
         has_credentials: bool,
         window: window::Id,
     },
+    // === halloy-stickers fork: BEGIN ===
     StickerPicker(sticker_picker::State),
     StickerInfo(sticker_info::State),
     StickerManager(sticker_manager::State),
+    // === halloy-stickers fork: END ===
 }
 
 #[derive(Debug, Clone)]
@@ -55,9 +59,11 @@ pub enum Message {
     ServerConnect(ServerConnect),
     About(about::Action),
     ImagePreview(ImagePreview),
+    // === halloy-stickers fork: BEGIN ===
     StickerPicker(sticker_picker::Action),
     StickerInfo(sticker_info::Action),
     StickerManager(sticker_manager::Action),
+    // === halloy-stickers fork: END ===
 }
 
 #[derive(Debug, Clone)]
@@ -76,10 +82,12 @@ pub enum Event {
     CloseModal,
     AcceptNewServer,
     ConfirmFileUpload,
+    // === halloy-stickers fork: BEGIN ===
     SelectedSticker {
         pack_id: data::sticker::PackId,
         sticker_id: data::sticker::StickerId,
     },
+    // === halloy-stickers fork: END ===
 }
 
 impl Modal {
@@ -96,9 +104,11 @@ impl Modal {
                 window,
             } => Some(*window),
             Modal::ConfirmFileUpload { window, .. } => Some(*window),
+            // === halloy-stickers fork: BEGIN ===
             Modal::StickerPicker(..) => None,
             Modal::StickerInfo(..) => None,
             Modal::StickerManager(..) => None,
+            // === halloy-stickers fork: END ===
         }
     }
 
@@ -137,6 +147,7 @@ impl Modal {
                 let close = !matches!(self, Modal::ConfirmFileUpload { .. });
                 (Task::none(), close.then_some(Event::CloseModal))
             }
+            // === halloy-stickers fork: BEGIN ===
             Message::StickerPicker(action) => {
                 if let Modal::StickerPicker(state) = self {
                     match state.update(action) {
@@ -167,6 +178,7 @@ impl Modal {
                     (Task::none(), None)
                 }
             }
+            // === halloy-stickers fork: END ===
             Message::ImagePreview(image_preview) => match image_preview {
                 ImagePreview::SaveImage(source) => (
                     Task::perform(
@@ -234,9 +246,11 @@ impl Modal {
                 timer,
                 window: _,
             } => image_preview::view(source, url, timer, theme),
+            // === halloy-stickers fork: BEGIN ===
             Modal::StickerPicker(state) => state.view(theme),
             Modal::StickerInfo(state) => state.view(theme),
             Modal::StickerManager(state) => state.view(theme),
+            // === halloy-stickers fork: END ===
         }
     }
 }

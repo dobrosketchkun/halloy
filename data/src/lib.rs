@@ -57,7 +57,9 @@ pub mod serde;
 pub mod server;
 pub mod server_icon;
 pub mod shortcut;
+// === halloy-stickers fork: BEGIN ===
 pub mod sticker;
+// === halloy-stickers fork: END ===
 pub mod stream;
 pub mod target;
 pub mod time;

@@ -91,12 +91,14 @@ pub enum Irc {
         msgid: message::Id,
         reason: Option<String>,
     },
+    // === halloy-stickers fork: BEGIN ===
     Sticker {
         target: String,
         url: String,
         pack_id: String,
         sticker_id: String,
     },
+    // === halloy-stickers fork: END ===
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
@@ -289,7 +291,9 @@ pub enum Kind {
     MassMessage,
     Exec,
     Raw,
+    // === halloy-stickers fork: BEGIN ===
     Sticker,
+    // === halloy-stickers fork: END ===
 }
 
 impl FromStr for Kind {
@@ -336,7 +340,9 @@ impl FromStr for Kind {
             "upload" => Ok(Kind::Upload),
             "massmessage" | "mm" => Ok(Kind::MassMessage),
             "exec" => Ok(Kind::Exec),
+            // === halloy-stickers fork: BEGIN ===
             "sticker" => Ok(Kind::Sticker),
+            // === halloy-stickers fork: END ===
             _ => Err(()),
         }
     }
@@ -1083,6 +1089,7 @@ fn parse_command(
                 })
             }
             Kind::Raw => Ok(Command::Irc(Irc::Raw(raw.to_string()), None)),
+            // === halloy-stickers fork: BEGIN ===
             Kind::Sticker => {
                 if let Some(target) = buffer.and_then(Upstream::target) {
                     validated::<1, 0, false>(args, |[spec], _| {
@@ -1126,6 +1133,7 @@ fn parse_command(
                     Err(Error::NotInChannel)
                 }
             }
+            // === halloy-stickers fork: END ===
             Kind::Format => {
                 if let Some(target) = buffer.and_then(Upstream::target) {
                     Ok(Command::Irc(
@@ -2087,9 +2095,11 @@ impl TryFrom<Irc> for proto::Command {
                 msgid,
                 reason,
             } => proto::Command::REDACT(target, msgid.to_string(), reason),
+            // === halloy-stickers fork: BEGIN ===
             Irc::Sticker { target, url, .. } => {
                 proto::Command::PRIVMSG(target, url)
             }
+            // === halloy-stickers fork: END ===
         })
     }
 }
@@ -2110,6 +2120,7 @@ impl TryFrom<Irc> for proto::Message {
                 "+draft/unreact" => text.as_ref(),
             ],
             Irc::Typing { value, .. } => tags!["+typing" => value.as_str()],
+            // === halloy-stickers fork: BEGIN ===
             Irc::Sticker {
                 pack_id,
                 sticker_id,
@@ -2117,6 +2128,7 @@ impl TryFrom<Irc> for proto::Message {
             } => tags![
                 "+halloy.chat/sticker" => format!("{pack_id}/{sticker_id}"),
             ],
+            // === halloy-stickers fork: END ===
             _ => tags![],
         };
         let mut msg = proto::Message::from(proto::Command::try_from(command)?);
@@ -2194,6 +2206,7 @@ pub enum Error {
     },
     #[error("/{command} is not enabled in configuration")]
     CommandNotEnabled { command: &'static str },
+    // === halloy-stickers fork: BEGIN ===
     #[error("invalid sticker spec {spec:?}, expected pack_id/sticker_id")]
     InvalidStickerSpec { spec: String },
     #[error("sticker {pack_id}/{sticker_id} not found in any loaded pack")]
@@ -2201,6 +2214,7 @@ pub enum Error {
         pack_id: String,
         sticker_id: String,
     },
+    // === halloy-stickers fork: END ===
 }
 
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]

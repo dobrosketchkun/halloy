@@ -108,8 +108,10 @@ pub enum Command {
     CyclePreviousUnreadBuffer,
     MarkAsRead,
     OpenConfigFile,
+    // === halloy-stickers fork: BEGIN ===
     OpenStickerPicker,
     OpenStickerManager,
+    // === halloy-stickers fork: END ===
 }
 
 macro_rules! default {
@@ -300,8 +302,10 @@ impl KeyBind {
     default!(open_config_file, ",", COMMAND);
     #[cfg(not(target_os = "macos"))]
     default!(open_config_file, ",", CTRL);
+    // === halloy-stickers fork: BEGIN ===
     default!(open_sticker_picker, "s", CTRL | SHIFT);
     default!(open_sticker_manager, "p", CTRL | SHIFT);
+    // === halloy-stickers fork: END ===
 }
 
 impl From<(keyboard::Key, keyboard::Modifiers)> for KeyBind {
