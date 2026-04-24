@@ -323,6 +323,13 @@ impl Halloy {
         let proxy_config = config.proxy.clone();
         let sticker_config = config.sticker.clone();
         let check_for_update_on_launch = config.check_for_update_on_launch;
+
+        // Load sticker recents from disk synchronously — it's a tiny JSON
+        // file (~1 KB), and the picker's initial view should reflect the
+        // user's history before they interact with anything.
+        data::sticker::replace_shared_recents(
+            data::sticker::recents::load_sync(),
+        );
         let window_size = iced::Size::new(
             config
                 .window
