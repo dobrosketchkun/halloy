@@ -1,5 +1,19 @@
 # Halloy - IRC Client
 
+<!-- === halloy-stickers fork: BEGIN === -->
+> ### 📎 This is a fork — `stickerpacks`
+>
+> This branch adds **Telegram-style sticker packs** to halloy. Packs are just a `pack.json` manifest + folder of images on any public URL (typically a GitHub repo). Other halloy clients render them inline; non-halloy IRC clients see a clickable image link.
+>
+> **Quick tour:**
+> - **Ctrl+Shift+S** → sticker picker (press-and-hold any sticker to preview zoomed)
+> - **Ctrl+Shift+P** → pack manager (add/remove/reorder/rename, writes back to `config.toml`)
+> - Click any sticker in chat → pack-info modal with a "Copy pack URL" button for sharing
+> - Full config reference: [`docs/configuration/sticker.md`](./docs/configuration/sticker.md)
+>
+> Everything below is from upstream halloy and still applies — the fork adds functionality without removing any.
+<!-- === halloy-stickers fork: END === -->
+
 <img src="./assets/banner.png" alt="banner" title="Icon by Rune Seir">
 
 ![halloy](./assets/animation.gif)
@@ -52,6 +66,9 @@ We strive to be a leading irc client with a rich ircv3 feature set. currently su
 - [`WHOX`](https://ircv3.net/specs/extensions/whox)
 - [`soju.im/bouncer-networks`](https://codeberg.org/emersion/soju/src/branch/master/doc/ext/bouncer-networks.md)
 - [`soju.im/filehost`](https://codeberg.org/emersion/soju/src/branch/master/doc/ext/filehost.md)
+<!-- === halloy-stickers fork: BEGIN === -->
+- `+halloy.chat/sticker` — vendor-prefixed client tag for sticker messages (fork-specific, not an upstream IRCv3 spec)
+<!-- === halloy-stickers fork: END === -->
 
 ## Why?
 
