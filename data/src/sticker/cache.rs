@@ -21,7 +21,16 @@ pub fn pack_cache_dir(pack_id: &str) -> PathBuf {
 /// Modified` for unchanged files — cheap round-trip, no body transfer.
 /// Any other successful response overwrites the cached file so the user
 /// sees updated stickers after editing their pack repo.
-pub async fn ensure_cached(url: Url, dest: PathBuf) -> Option<PathBuf> {
+///
+/// The body is bounded by `max_bytes` (from `[sticker].max_image_bytes` in
+/// config). A response larger than the limit is skipped and returns None —
+/// the sticker just won't have a thumbnail in the picker, rather than
+/// exhausting memory on a hostile pack.
+pub async fn ensure_cached(
+    url: Url,
+    dest: PathBuf,
+    max_bytes: usize,
+) -> Option<PathBuf> {
     let mut request = reqwest::Client::new().get(url.clone());
 
     if let Ok(metadata) = fs::metadata(&dest).await
@@ -39,7 +48,8 @@ pub async fn ensure_cached(url: Url, dest: PathBuf) -> Option<PathBuf> {
         return Some(dest);
     }
 
-    let bytes = response.error_for_status().ok()?.bytes().await.ok()?;
+    let response = response.error_for_status().ok()?;
+    let bytes = super::fetch::fetch_limited_bytes(response, max_bytes).await?;
 
     if let Some(parent) = dest.parent() {
         fs::create_dir_all(parent).await.ok()?;

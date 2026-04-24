@@ -1,10 +1,11 @@
 use std::path::PathBuf;
+use std::time::Instant;
 
 use data::sticker::PackId;
 use iced::clipboard;
 use iced::widget::{
-    button, center, column, container, image, mouse_area, row, scrollable,
-    stack, text,
+    self, Space, button, center, column, container, image, mouse_area, row,
+    scrollable, stack, text,
 };
 use iced::{Length, Task, alignment};
 
@@ -31,7 +32,8 @@ pub enum Action {
 pub struct State {
     pub pack_id: PackId,
     preview: Option<PathBuf>,
-    pressed: bool,
+    pressed_at: Option<Instant>,
+    grid_scroll_id: widget::Id,
 }
 
 impl State {
@@ -39,7 +41,8 @@ impl State {
         Self {
             pack_id,
             preview: None,
-            pressed: false,
+            pressed_at: None,
+            grid_scroll_id: widget::Id::unique(),
         }
     }
 
@@ -47,18 +50,21 @@ impl State {
         match action {
             Action::CopyUrl(url) => clipboard::write(url),
             Action::PressSticker(path) => {
-                self.pressed = true;
+                self.pressed_at = Some(Instant::now());
                 self.preview = Some(path);
                 Task::none()
             }
             Action::HoverWhilePressed(path) => {
-                if self.pressed {
+                if self.pressed_at.is_some() {
                     self.preview = Some(path);
                 }
                 Task::none()
             }
             Action::ReleaseSticker => {
-                self.pressed = false;
+                // Threshold matches the picker: release within 250ms =
+                // plain click (info modal has no send action so it's a
+                // no-op), longer = hold, which we cancel silently.
+                self.pressed_at = None;
                 self.preview = None;
                 Task::none()
             }
@@ -88,7 +94,7 @@ impl State {
         });
 
         let body = match snapshot {
-            Some(pack) => pack_info_view(pack),
+            Some(pack) => pack_info_view(pack, self.grid_scroll_id.clone()),
             None => container(text(
                 "Pack not found in registry. It may have been removed from config.",
             ))
@@ -104,21 +110,24 @@ impl State {
             .on_release(ModalMessage::StickerInfo(Action::ReleaseSticker))
             .into();
 
-        match &self.preview {
-            Some(preview_path) => {
-                let overlay = center(
-                    container(
-                        image(preview_path.clone())
-                            .width(STICKER_HOLD_PREVIEW_SIZE)
-                            .height(STICKER_HOLD_PREVIEW_SIZE),
-                    )
-                    .padding(6)
-                    .style(theme::container::tooltip),
-                );
-                stack![base, overlay].into()
-            }
-            None => base,
-        }
+        // Always use a two-child stack so the scrollable stays in a stable
+        // tree position — toggling the stack wrapping would reset grid
+        // scroll on every press (same bug the picker had).
+        let overlay: Element<'a, ModalMessage> = match &self.preview {
+            Some(preview_path) => center(
+                container(
+                    image(preview_path.clone())
+                        .width(STICKER_HOLD_PREVIEW_SIZE)
+                        .height(STICKER_HOLD_PREVIEW_SIZE),
+                )
+                .padding(6)
+                .style(theme::container::tooltip),
+            )
+            .into(),
+            None => Space::new().into(),
+        };
+
+        stack![base, overlay].into()
     }
 }
 
@@ -131,7 +140,10 @@ struct PackSnapshot {
     stickers: Vec<PathBuf>,
 }
 
-fn pack_info_view<'a>(pack: PackSnapshot) -> Element<'a, ModalMessage> {
+fn pack_info_view<'a>(
+    pack: PackSnapshot,
+    grid_scroll_id: widget::Id,
+) -> Element<'a, ModalMessage> {
     let cover: Element<'a, ModalMessage> = match pack.cover_path {
         Some(p) => image(p).width(COVER_SIZE).height(COVER_SIZE).into(),
         None => container(text("")).width(COVER_SIZE).height(COVER_SIZE).into(),
@@ -149,7 +161,7 @@ fn pack_info_view<'a>(pack: PackSnapshot) -> Element<'a, ModalMessage> {
 
     let header = row![cover, header_info].spacing(12);
 
-    let grid = build_grid(pack.stickers);
+    let grid = build_grid(pack.stickers, grid_scroll_id);
 
     let copy_btn = button(text("Copy pack URL"))
         .on_press(ModalMessage::StickerInfo(Action::CopyUrl(pack.base_url)))
@@ -177,7 +189,10 @@ fn pack_info_view<'a>(pack: PackSnapshot) -> Element<'a, ModalMessage> {
     .into()
 }
 
-fn build_grid<'a>(paths: Vec<PathBuf>) -> Element<'a, ModalMessage> {
+fn build_grid<'a>(
+    paths: Vec<PathBuf>,
+    scroll_id: widget::Id,
+) -> Element<'a, ModalMessage> {
     let mut rows: Vec<Vec<Element<'a, ModalMessage>>> = Vec::new();
     let mut current: Vec<Element<'a, ModalMessage>> = Vec::new();
 
@@ -216,6 +231,7 @@ fn build_grid<'a>(paths: Vec<PathBuf>) -> Element<'a, ModalMessage> {
         .collect();
 
     scrollable(column(row_elements).spacing(4).padding(4))
+        .id(scroll_id)
         .height(Length::Fill)
         .into()
 }

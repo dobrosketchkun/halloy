@@ -21,6 +21,8 @@ pub enum Error {
     BadUrl(#[from] url::ParseError),
     #[error("invalid pack id {0:?}")]
     InvalidPackId(String),
+    #[error("pack.json exceeds size limit ({max} bytes)")]
+    ManifestTooLarge { max: usize },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -101,6 +103,8 @@ use std::sync::{Arc, OnceLock, RwLock};
 static SHARED: OnceLock<Arc<RwLock<Registry>>> = OnceLock::new();
 static SHARED_RECENTS: OnceLock<Arc<RwLock<VecDeque<StickerRef>>>> =
     OnceLock::new();
+static SHARED_CONFIG: OnceLock<Arc<RwLock<crate::config::Sticker>>> =
+    OnceLock::new();
 
 const MAX_RECENTS: usize = 24;
 
@@ -111,6 +115,30 @@ fn shared_cell() -> &'static Arc<RwLock<Registry>> {
 fn recents_cell() -> &'static Arc<RwLock<VecDeque<StickerRef>>> {
     SHARED_RECENTS
         .get_or_init(|| Arc::new(RwLock::new(VecDeque::new())))
+}
+
+fn config_cell() -> &'static Arc<RwLock<crate::config::Sticker>> {
+    SHARED_CONFIG.get_or_init(|| {
+        Arc::new(RwLock::new(crate::config::Sticker::default()))
+    })
+}
+
+/// Called at startup and on config reload so the fetch/cache layer can
+/// read the user's current limits without plumbing `config::Sticker`
+/// through every async callsite.
+pub fn set_shared_config(config: crate::config::Sticker) {
+    if let Ok(mut guard) = config_cell().write() {
+        *guard = config;
+    }
+}
+
+/// Snapshot of the current sticker config — used by fetch/cache to look
+/// up `max_manifest_bytes`, `max_image_bytes`, `max_stickers_per_pack`.
+pub fn shared_config() -> crate::config::Sticker {
+    config_cell()
+        .read()
+        .map(|g| g.clone())
+        .unwrap_or_default()
 }
 
 /// Record a sticker send in the MRU recents list and persist to disk.

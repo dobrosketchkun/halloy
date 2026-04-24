@@ -1,3 +1,4 @@
+use futures::StreamExt;
 use url::Url;
 
 use super::{Error, Pack, PackId, PackManifest};
@@ -6,13 +7,52 @@ pub async fn fetch_pack(base_url: Url) -> Result<Pack, Error> {
     let base_url = normalize_base_url(base_url);
     let manifest_url = base_url.join("pack.json")?;
 
-    let bytes = reqwest::get(manifest_url)
-        .await?
-        .error_for_status()?
-        .bytes()
-        .await?;
+    let config = super::shared_config();
 
-    parse_manifest(base_url, &bytes)
+    let response = reqwest::get(manifest_url).await?.error_for_status()?;
+    let bytes = fetch_limited_bytes(response, config.max_manifest_bytes)
+        .await
+        .ok_or(Error::ManifestTooLarge {
+            max: config.max_manifest_bytes,
+        })?;
+
+    let mut pack = parse_manifest(base_url, &bytes)?;
+
+    // Truncate sticker list to the configured per-pack limit — defends
+    // against a bloated pack filling the picker forever.
+    if pack.manifest.stickers.len() > config.max_stickers_per_pack {
+        pack.manifest
+            .stickers
+            .truncate(config.max_stickers_per_pack);
+    }
+
+    Ok(pack)
+}
+
+/// Read up to `max_bytes` from a response's body. Returns None if the body
+/// exceeds the limit (either per Content-Length or during streaming).
+/// Used to bound pack.json and sticker image downloads so a hostile repo
+/// can't exhaust memory.
+pub(super) async fn fetch_limited_bytes(
+    response: reqwest::Response,
+    max_bytes: usize,
+) -> Option<bytes::Bytes> {
+    if let Some(len) = response.content_length() {
+        if len as usize > max_bytes {
+            return None;
+        }
+    }
+
+    let mut buf = bytes::BytesMut::new();
+    let mut stream = response.bytes_stream();
+    while let Some(chunk) = stream.next().await {
+        let chunk = chunk.ok()?;
+        if buf.len() + chunk.len() > max_bytes {
+            return None;
+        }
+        buf.extend_from_slice(&chunk);
+    }
+    Some(buf.freeze())
 }
 
 /// Accept either a raw.githubusercontent.com URL or a github.com tree/blob URL
