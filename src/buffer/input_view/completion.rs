@@ -1412,6 +1412,21 @@ fn connected_command_list<'a>(
             }],
             subcommands: None,
         },
+        // === halloy-stickers fork: BEGIN ===
+        // STICKER
+        Command {
+            title: "STICKER".into(),
+            args: vec![Argument {
+                text: "pack_id/sticker_id".into(),
+                kind: ArgumentKind::Required,
+                tooltip: Some(
+                    "Send a sticker. Open the picker with Ctrl+Shift+S."
+                        .to_string(),
+                ),
+            }],
+            subcommands: None,
+        },
+        // === halloy-stickers fork: END ===
     ]
 }
 

@@ -388,7 +388,7 @@ fn recents_row<'a>(
 
 fn empty_state<'a>() -> Element<'a, ModalMessage> {
     container(text(
-        "No sticker packs loaded. Add packs in config.toml under [[sticker.packs]].",
+        "No sticker packs loaded.\n\nPress Ctrl+Shift+P to open the pack manager and add one.",
     ))
     .padding(20)
     .width(Length::Fixed(MODAL_WIDTH))
