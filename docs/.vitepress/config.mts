@@ -151,6 +151,12 @@ export default defineConfig({
             text: "Sidebar",
             link: "/configuration/sidebar",
           },
+          // === halloy-stickers fork: BEGIN ===
+          {
+            text: "Sticker",
+            link: "/configuration/sticker",
+          },
+          // === halloy-stickers fork: END ===
           {
             text: "Themes",
             link: "/configuration/themes",
