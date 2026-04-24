@@ -74,7 +74,7 @@ impl Pack {
     }
 
     pub fn sticker_url(&self, sticker_id: &StickerId) -> Option<Url> {
-        self.base_url.join(&self.find(sticker_id)?.file).ok()
+        resolve_file_url(&self.base_url, &self.find(sticker_id)?.file)
     }
 
     pub fn sticker_path(&self, sticker_id: &StickerId) -> Option<&PathBuf> {
@@ -82,7 +82,7 @@ impl Pack {
     }
 
     pub fn cover_url(&self) -> Option<Url> {
-        self.base_url.join(self.manifest.cover.as_deref()?).ok()
+        resolve_file_url(&self.base_url, self.manifest.cover.as_deref()?)
     }
 
     /// User's label if they've set one, otherwise the pack.json `name`.
@@ -91,5 +91,50 @@ impl Pack {
         self.label
             .as_deref()
             .unwrap_or(self.manifest.name.as_str())
+    }
+}
+
+/// Resolve a pack.json `file` field to an absolute URL.
+///
+/// If `file` already parses as an absolute `http`/`https` URL, it's used
+/// as-is — pack authors can point individual stickers or the cover to any
+/// host (CDNs, imgur, shared image repos, etc.). Otherwise it's treated as
+/// a relative filename and joined against the pack's base URL (the ordinary
+/// case where images live alongside `pack.json`).
+pub fn resolve_file_url(base_url: &Url, file: &str) -> Option<Url> {
+    if let Ok(abs) = Url::parse(file) {
+        match abs.scheme() {
+            "http" | "https" => Some(abs),
+            _ => None,
+        }
+    } else {
+        base_url.join(file).ok()
+    }
+}
+
+/// Local cache filename for a pack.json `file` entry.
+///
+/// Relative filenames map to themselves (ordinary case, one-to-one with the
+/// remote layout). Absolute URLs can't be used as filesystem paths directly,
+/// so we hash them into an opaque `_ext_<hash>.<ext>` name — collision-free
+/// across stickers that happen to share a basename, and the extension is
+/// preserved so image-format detection still works.
+pub fn cache_filename_for(file: &str) -> String {
+    if Url::parse(file).is_ok() {
+        let hash = seahash::hash(file.as_bytes());
+        let ext = file
+            .rsplit('.')
+            .next()
+            .filter(|e| {
+                !e.is_empty()
+                    && e.len() <= 5
+                    && e.chars().all(|c| c.is_ascii_alphanumeric())
+            });
+        match ext {
+            Some(e) => format!("_ext_{hash:016x}.{e}"),
+            None => format!("_ext_{hash:016x}"),
+        }
+    } else {
+        file.to_owned()
     }
 }
