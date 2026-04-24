@@ -130,8 +130,11 @@ pub async fn cache_pack_images(mut pack: Pack) -> Pack {
 
     // Cover
     if let Some(cover_file) = pack.manifest.cover.clone() {
-        if let Ok(cover_url) = pack.base_url.join(&cover_file) {
-            let dest = pack_dir.join(&cover_file);
+        if let Some(cover_url) =
+            super::pack::resolve_file_url(&pack.base_url, &cover_file)
+        {
+            let dest =
+                pack_dir.join(super::pack::cache_filename_for(&cover_file));
             pack.cover_path =
                 super::cache::ensure_cached(cover_url, dest, max_bytes).await;
         }
@@ -142,9 +145,9 @@ pub async fn cache_pack_images(mut pack: Pack) -> Pack {
         let id = s.id.clone();
         let file = s.file.clone();
         let base = pack.base_url.clone();
-        let dest = pack_dir.join(&file);
+        let dest = pack_dir.join(super::pack::cache_filename_for(&file));
         async move {
-            let url = base.join(&file).ok()?;
+            let url = super::pack::resolve_file_url(&base, &file)?;
             let path =
                 super::cache::ensure_cached(url, dest, max_bytes).await?;
             Some((id, path))

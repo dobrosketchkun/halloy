@@ -235,7 +235,8 @@ pub fn pack_for_url(url: &url::Url) -> Option<PackId> {
     with_shared(|reg| {
         for pack in reg.iter() {
             for s in &pack.manifest.stickers {
-                if let Ok(candidate) = pack.base_url.join(&s.file)
+                if let Some(candidate) =
+                    pack::resolve_file_url(&pack.base_url, &s.file)
                     && &candidate == url
                 {
                     return Some(pack.id.clone());
