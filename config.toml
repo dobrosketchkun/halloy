@@ -7,3 +7,13 @@
 nickname = "__NICKNAME__"
 server = "irc.libera.chat"
 channels = ["#halloy"]
+
+# === halloy-stickers fork: BEGIN ===
+# Sticker packs (stickerpacks fork). Press Ctrl+Shift+P in the app to open
+# the manager, or uncomment an example below. See
+# docs/configuration/sticker.md in this repo for all options.
+#
+# [[sticker.packs]]
+# url = "https://github.com/user/stickers/tree/main/mypack"
+# label = "My pack"
+# === halloy-stickers fork: END ===
