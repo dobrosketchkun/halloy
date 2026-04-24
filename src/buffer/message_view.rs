@@ -551,7 +551,14 @@ impl<'a> ChannelQueryLayout<'a> {
                     message.hash,
                 ));
 
-                (
+                // === halloy-stickers fork: BEGIN ===
+                // For sticker messages, drop the body text entirely — the URL
+                // is still in the wire format so non-halloy clients see a
+                // clickable link, but inside halloy we render the image below
+                // and the raw URL text above it is redundant clutter.
+                let body: Element<'a, Message> = if message.sticker.is_some() {
+                    Space::new().into()
+                } else {
                     tooltip(
                         message_content::with_context(
                             &message.content,
@@ -609,7 +616,12 @@ impl<'a> ChannelQueryLayout<'a> {
                         redaction_message,
                         tooltip::Position::Top,
                         self.theme,
-                    ),
+                    )
+                };
+                // === halloy-stickers fork: END ===
+
+                (
+                    body,
                     self.reaction_row(message)
                         .into_iter()
                         .chain(not_sent_row)
