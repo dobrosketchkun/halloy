@@ -51,3 +51,14 @@ We strive to be a leading irc client with a rich ircv3 feature set. currently su
 - [`WHOX`](https://ircv3.net/specs/extensions/whox)
 - [`soju.im/bouncer-networks`](https://codeberg.org/emersion/soju/src/branch/master/doc/ext/bouncer-networks.md)
 - [`soju.im/FILEHOST`](https://soju.im/filehost)
+
+<!-- === halloy-stickers fork: BEGIN === -->
+## Stickers (fork-specific)
+
+This fork adds Telegram-style sticker packs. Stickers are sent as ordinary `PRIVMSG` messages with an image URL in the body and a vendor-prefixed IRCv3 client tag `+halloy.chat/sticker=pack_id/sticker_id`. Other IRC clients see a clickable image link; halloy clients render the sticker inline.
+
+- Picker: **Ctrl+Shift+S**
+- Manager: **Ctrl+Shift+P**
+- Configuration: [Sticker](./configuration/sticker.md)
+<!-- === halloy-stickers fork: END === -->
+
