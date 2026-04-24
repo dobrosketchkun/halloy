@@ -69,6 +69,7 @@ pub enum Message {
         msgid: message::Id,
         text: Cow<'static, str>,
     },
+    // === halloy-stickers fork: BEGIN ===
     StickerPressed {
         url: url::Url,
         path: PathBuf,
@@ -76,6 +77,7 @@ pub enum Message {
     StickerHoldTimerExpired(url::Url),
     StickerReleasedOn(url::Url, PathBuf),
     StickerReleaseOutside,
+    // === halloy-stickers fork: END ===
 }
 
 impl From<context_menu::Message> for Message {
@@ -692,6 +694,10 @@ pub fn view<'a>(
         Message::ContentResized,
     );
 
+    // === halloy-stickers fork: BEGIN ===
+    // Wrap the scrollable in a mouse_area for "release anywhere" press
+    // cleanup, and optionally stack a preview overlay on top when the
+    // user is holding a sticker. See State::sticker_press below.
     let base = correct_viewport(
         Scrollable::new(container(content).width(Length::Fill).padding([0, 8]))
             .direction(scrollable::Direction::Vertical(
@@ -732,6 +738,7 @@ pub fn view<'a>(
         }
         None => with_global_release,
     }
+    // === halloy-stickers fork: END ===
 }
 
 #[derive(Debug, Clone)]
@@ -748,20 +755,22 @@ pub struct State {
     visible_url_messages: HashMap<message::Hash, Vec<url::Url>>,
     pending_preview_exits: HashSet<message::Hash>,
     hovered_preview: Option<(message::Hash, usize)>,
-    // Press-and-hold sticker preview. `press_url` records which sticker the
-    // mouse went down on; `moved` flips true when the cursor enters any
-    // *other* sticker while the button is still held — that turns a would-be
-    // click into a cancel on release. `preview_path` drives the centered
-    // overlay rendered on top of the chat.
+    // === halloy-stickers fork: BEGIN ===
+    // Press-and-hold sticker preview. `sticker_press` records which sticker
+    // the mouse went down on and when; a 250ms timer drives the centered
+    // `sticker_preview_path` overlay so quick clicks never flash it.
     sticker_press: Option<StickerPressState>,
     sticker_preview_path: Option<PathBuf>,
+    // === halloy-stickers fork: END ===
 }
 
+// === halloy-stickers fork: BEGIN ===
 #[derive(Debug, Clone)]
 struct StickerPressState {
     url: url::Url,
     path: PathBuf,
 }
+// === halloy-stickers fork: END ===
 
 impl State {
     pub fn new(pane_size: Size, config: &Config) -> Self {
@@ -780,8 +789,10 @@ impl State {
             visible_url_messages: HashMap::new(),
             pending_preview_exits: HashSet::new(),
             hovered_preview: None,
+            // === halloy-stickers fork: BEGIN ===
             sticker_press: None,
             sticker_preview_path: None,
+            // === halloy-stickers fork: END ===
         }
     }
 
@@ -1200,6 +1211,7 @@ impl State {
             Message::Unreacted { msgid, text } => {
                 send_reaction(clients, buffer, history, msgid, text, true);
             }
+            // === halloy-stickers fork: BEGIN ===
             Message::StickerPressed { url, path } => {
                 // Record the press without showing preview yet. The preview
                 // only appears after a 250ms hold — so a normal quick click
@@ -1247,6 +1259,7 @@ impl State {
                 self.sticker_press = None;
                 self.sticker_preview_path = None;
             }
+            // === halloy-stickers fork: END ===
         }
         (Task::none(), None)
     }
@@ -1972,6 +1985,7 @@ fn preview_row<'a>(
         data::Preview::Image(preview::Image { path, url, .. }) => {
             let body: Element<'a, Message> = if let Some(sticker_ref) =
                 &message.sticker
+            // === halloy-stickers fork: BEGIN ===
             {
                 // Sticker rendering: fixed max size from
                 // [sticker].max_size_px, clickable but no enlarge action —
@@ -2011,6 +2025,7 @@ fn preview_row<'a>(
                         display_path,
                     ))
                     .into()
+            // === halloy-stickers fork: END ===
             } else {
                 button(
                     container(

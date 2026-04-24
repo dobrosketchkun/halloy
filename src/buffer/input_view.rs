@@ -2752,8 +2752,11 @@ fn show_while_typing(error: &input::Error) -> bool {
             | command::Error::Connected
             | command::Error::Disconnected
             | command::Error::NotInChannel
+            // === halloy-stickers fork: BEGIN ===
             | command::Error::InvalidStickerSpec { .. }
-            | command::Error::StickerNotFound { .. },
+            | command::Error::StickerNotFound { .. }
+            // === halloy-stickers fork: END ===
+            ,
         ) => false,
     }
 }

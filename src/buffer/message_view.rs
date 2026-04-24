@@ -493,6 +493,7 @@ impl<'a> ChannelQueryLayout<'a> {
             }
         });
 
+        // === halloy-stickers fork: BEGIN ===
         // For sticker messages, drop the body text entirely — the URL is
         // still in the wire format so non-halloy clients see a clickable
         // link, but inside halloy we render the image below and the raw
@@ -541,6 +542,7 @@ impl<'a> ChannelQueryLayout<'a> {
                 self.config,
             )
         };
+        // === halloy-stickers fork: END ===
 
         let after_content =
             self.reaction_row(message).into_iter().chain(not_sent_row);

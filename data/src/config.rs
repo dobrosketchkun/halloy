@@ -83,7 +83,9 @@ pub struct Config {
     pub tooltips: Tooltips,
     pub window: Window,
     pub preview: Preview,
+    // === halloy-stickers fork: BEGIN ===
     pub sticker: Sticker,
+    // === halloy-stickers fork: END ===
     pub highlights: Highlights,
     pub actions: Actions,
     pub ctcp: Ctcp,
@@ -112,7 +114,9 @@ impl Default for Config {
             tooltips: Tooltips::default(),
             window: Window::default(),
             preview: Preview::default(),
+            // === halloy-stickers fork: BEGIN ===
             sticker: Sticker::default(),
+            // === halloy-stickers fork: END ===
             highlights: Highlights::default(),
             actions: Actions::default(),
             ctcp: Ctcp::default(),
@@ -435,7 +439,9 @@ impl Config {
             pub tooltips: Tooltips,
             pub window: Window,
             pub preview: Preview,
+            // === halloy-stickers fork: BEGIN ===
             pub sticker: Sticker,
+            // === halloy-stickers fork: END ===
             pub highlights: Highlights,
             pub actions: Actions,
             pub ctcp: Ctcp,
@@ -464,7 +470,9 @@ impl Config {
                     tooltips: Tooltips::default(),
                     window: Window::default(),
                     preview: Preview::default(),
+                    // === halloy-stickers fork: BEGIN ===
                     sticker: Sticker::default(),
+                    // === halloy-stickers fork: END ===
                     highlights: Highlights::default(),
                     actions: Actions::default(),
                     ctcp: Ctcp::default(),
@@ -503,7 +511,9 @@ impl Config {
             tooltips,
             window,
             preview,
+            // === halloy-stickers fork: BEGIN ===
             sticker,
+            // === halloy-stickers fork: END ===
             pane,
             highlights,
             actions,
@@ -544,7 +554,9 @@ impl Config {
             tooltips,
             window,
             preview,
+            // === halloy-stickers fork: BEGIN ===
             sticker,
+            // === halloy-stickers fork: END ===
             pane,
             highlights,
             actions,

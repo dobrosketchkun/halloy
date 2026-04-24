@@ -45,7 +45,9 @@ fn expand(
             reactions: vec![],
             rerouted_from: None,
             deduplicate: false,
+            // === halloy-stickers fork: BEGIN ===
             sticker: None,
+            // === halloy-stickers fork: END ===
         }
     };
 
